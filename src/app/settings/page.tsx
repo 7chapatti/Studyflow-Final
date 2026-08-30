@@ -6,39 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/types";
 import { TIER_LIMITS } from "@/types";
-
-function UserIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    </svg>
-  );
-}
-
-function ZapIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
+import { CheckIcon, ShieldIcon, UserIcon, ZapIcon } from "@/components/icons";
 
 const TIER_INFO = {
   free: {
@@ -86,6 +54,9 @@ export default function SettingsPage() {
   const [nameSaving, setNameSaving] = useState(false);
   const [nameSuccess, setNameSuccess] = useState(false);
   const [nameError, setNameError] = useState("");
+
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState("");
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -219,6 +190,32 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleManageSubscription() {
+    setPortalError("");
+    setPortalLoading(true);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+
+      let json: { success?: boolean; data?: { url?: string }; error?: string } | null = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
+      }
+
+      if (!res.ok || !json?.success || !json.data?.url) {
+        setPortalError(json?.error ?? "Failed to open billing portal.");
+        return;
+      }
+
+      window.location.href = json.data.url;
+    } catch {
+      setPortalError("Failed to open billing portal.");
+    } finally {
+      setPortalLoading(false);
+    }
+  }
+
   async function handleDeleteAccount() {
     setDeleteError("");
 
@@ -322,7 +319,7 @@ export default function SettingsPage() {
           {nameError && <p role="alert" className="text-red text-xs">{nameError}</p>}
           {nameSuccess && (
             <p className="text-green text-xs flex items-center gap-1">
-              <CheckIcon /> Name updated successfully.
+              <CheckIcon size={13} /> Name updated successfully.
             </p>
           )}
           <button
@@ -378,7 +375,7 @@ export default function SettingsPage() {
           {pwError && <p role="alert" className="text-red text-xs">{pwError}</p>}
           {pwSuccess && (
             <p className="text-green text-xs flex items-center gap-1">
-              <CheckIcon /> Password changed successfully.
+              <CheckIcon size={13} /> Password changed successfully.
             </p>
           )}
           <button
@@ -435,7 +432,7 @@ export default function SettingsPage() {
         <ul className="space-y-2 mb-5">
           {tierInfo.features.map((f) => (
             <li key={f} className="flex items-center gap-2 text-sm text-muted">
-              <span className="text-green shrink-0"><CheckIcon /></span>
+              <span className="text-green shrink-0"><CheckIcon size={13} /></span>
               {f}
             </li>
           ))}
@@ -457,6 +454,28 @@ export default function SettingsPage() {
             >
               View plans →
             </Link>
+          </div>
+        )}
+
+        {/* Billing portal covers cancelling, switching plans, updating the
+            payment method, and viewing invoices -- all inside Stripe's own
+            hosted UI, so none of that needs building here. Only shown once
+            there's an actual Stripe customer to manage (i.e. the user has
+            been through checkout at least once); a free user who's never
+            paid has nothing to manage yet. */}
+        {profile.tier !== "free" && (
+          <div className="mt-3">
+            <button
+              onClick={handleManageSubscription}
+              disabled={portalLoading}
+              className="text-sm font-medium text-muted hover:text-text border border-border rounded-lg px-4 py-2 transition-colors disabled:opacity-50"
+            >
+              {portalLoading ? "Opening…" : "Manage subscription"}
+            </button>
+            <p className="text-dim text-xs mt-1.5">
+              Cancel, switch plans, update your payment method, or view invoices.
+            </p>
+            {portalError && <p className="text-red text-xs mt-1.5">{portalError}</p>}
           </div>
         )}
       </section>
