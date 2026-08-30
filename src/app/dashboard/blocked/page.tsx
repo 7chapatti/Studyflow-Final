@@ -5,33 +5,13 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { BlockedTime, DayOfWeek } from "@/types";
 import { DAYS_OF_WEEK } from "@/types";
-
-function PlusIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
-}
-function PencilIcon() {
-  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
-}
-function TrashIcon() {
-  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>;
-}
-function CheckIcon() {
-  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>;
-}
-function XIcon() {
-  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
-}
-function ResetIcon() {
-  return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>;
-}
+import { CheckIcon, PencilIcon, PlusIcon, ResetIcon, TrashIcon, XIcon } from "@/components/icons";
 
 function fmt24(hour: number): string {
   const h = Math.floor(hour);
   const m = Math.round((hour % 1) * 60);
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
-
-// ── Time text input (replaces select) ─────────────────────────────────────────
 
 function TimeInput({
   id,
@@ -311,7 +291,7 @@ export default function BlockedTimesPage() {
           {formError && <p role="alert" className="text-red text-xs">{formError}</p>}
 
           <button type="submit" disabled={saving} className="flex items-center gap-2 bg-indigo hover:bg-il text-white text-sm font-medium rounded-lg px-4 py-2.5 transition-colors disabled:opacity-50">
-            <PlusIcon />
+            <PlusIcon size={14} />
             {saving ? "Saving…" : "Add to calendar"}
           </button>
         </form>
@@ -395,11 +375,11 @@ export default function BlockedTimesPage() {
 
                     <div className="flex gap-2">
                       <button onClick={handleSaveEdit} className="flex items-center gap-1.5 bg-indigo hover:bg-il text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">
-                        <CheckIcon />
+                        <CheckIcon size={13} />
                         Save changes
                       </button>
                       <button onClick={() => setEditingId(null)} className="flex items-center gap-1.5 text-muted border border-border hover:border-indigo/50 text-sm rounded-lg px-4 py-2 transition-colors">
-                        <XIcon />
+                        <XIcon size={13} />
                         Cancel
                       </button>
                     </div>
@@ -433,7 +413,7 @@ export default function BlockedTimesPage() {
                         className="flex items-center gap-1.5 text-il text-xs font-medium bg-indigo/15 border border-indigo/30 hover:bg-indigo/25 rounded-lg px-3 py-1.5 transition-all"
                         aria-label={`Edit ${bt.label}`}
                       >
-                        <PencilIcon />
+                        <PencilIcon size={13} />
                         Edit
                       </button>
                       <button
@@ -441,7 +421,7 @@ export default function BlockedTimesPage() {
                         className="flex items-center justify-center w-8 h-8 text-red bg-red/10 border border-red/25 hover:bg-red/20 rounded-lg transition-all"
                         aria-label={`Delete ${bt.label}`}
                       >
-                        <TrashIcon />
+                        <TrashIcon size={13} />
                       </button>
                     </div>
                   </div>
