@@ -4,23 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { AIAnalysisResult, Priority } from "@/types";
-import { TIER_LIMITS } from "@/types";
-
-function UploadIcon() {
-  return <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>;
-}
-function SparklesIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 3L13.5 8.5L19 10L13.5 11.5L12 17L10.5 11.5L5 10L10.5 8.5L12 3Z"/><path d="M5 3L5.5 5L7 5.5L5.5 6L5 8L4.5 6L3 5.5L4.5 5L5 3Z"/><path d="M19 14L19.5 16L21 16.5L19.5 17L19 19L18.5 17L17 16.5L18.5 16L19 14Z"/></svg>;
-}
-function XIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
-}
-function FileIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>;
-}
-function CheckIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>;
-}
+import { CheckIcon, FileIcon, SparklesIcon, UploadIcon, XIcon } from "@/components/icons";
 
 function toIsoWithTimezone(date: string, time: string, timeZone: string) {
   const [year, month, day] = date.split("-").map(Number);
@@ -157,89 +141,40 @@ export default function NewAssignmentPage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
-
       const { data: profile } = await supabase
-        .from("profiles").select("tier, timezone").eq("id", user.id).single();
-      const tier = (profile?.tier ?? "free") as keyof typeof TIER_LIMITS;
-      const limit = TIER_LIMITS[tier].activeAssignments;
-
-      const { count } = await supabase
-        .from("assignments")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("status", "active");
-
-      if ((count ?? 0) >= limit) {
-        setFormError(`You've reached the ${limit} active assignment limit on your ${tier} plan. Archive completed assignments to add more.`);
-        setSubmitting(false);
-        return;
-      }
-
-      const { count: totalCount } = await supabase
-        .from("assignments")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id);
-
-      const colourIndex = (totalCount ?? 0) % 6;
-
+        .from("profiles").select("timezone").eq("id", user.id).single();
       const userTimeZone = profile?.timezone ?? "Europe/London";
       const deadlineWithTime = toIsoWithTimezone(deadline, deadlineTime, userTimeZone);
 
-      const { data: assignment, error: assignmentError } = await supabase
-        .from("assignments")
-        .insert({
-          user_id: user.id,
+      const res = await fetch("/api/assignments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           name: name.trim(),
-          description: description.trim() || null,
+          description: description.trim() || undefined,
           deadline: deadlineWithTime,
           priority,
-          estimated_hours: aiResult.estimatedHours,
-          colour_index: colourIndex,
-          status: "active",
-        })
-        .select()
-        .single();
+          sections: aiResult.sections,
+          checklist: aiResult.checklist ?? [],
+        }),
+      });
+      const json = await res.json();
 
-      if (assignmentError || !assignment) {
-        setFormError("Failed to create assignment. Please try again.");
+      if (!res.ok || !json.success) {
+        setFormError(json.error ?? "Failed to create assignment. Please try again.");
         setSubmitting(false);
         return;
       }
 
-      if (aiResult.sections.length > 0) {
-        await supabase.from("tasks").insert(
-          aiResult.sections.map((s, i) => ({
-            assignment_id: assignment.id,
-            name: s.name,
-            description: s.description || null,
-            estimated_hours: s.hours,
-            confidence_score: s.confidence,
-            order_index: i,
-            status: "todo",
-          }))
-        );
-      }
-
-      if (aiResult.checklist && aiResult.checklist.length > 0) {
-        await supabase.from("assignment_checklist").insert(
-          aiResult.checklist.map((item) => ({
-            assignment_id: assignment.id,
-            category: item.category,
-            label: item.label,
-            detail: item.detail || null,
-            confidence: item.confidence,
-            checked: false,
-          }))
-        );
-      }
+      const assignmentId = json.data.id as string;
 
       await fetch("/api/schedule/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignmentId: assignment.id }),
+        body: JSON.stringify({ assignmentId }),
       });
 
-      router.push(`/dashboard/assignment/${assignment.id}`);
+      router.push(`/dashboard/assignment/${assignmentId}`);
     } catch {
       setFormError("Something went wrong. Please try again.");
     } finally {
@@ -268,7 +203,12 @@ export default function NewAssignmentPage() {
             tabIndex={0}
             aria-label="Upload brief files — click or drop files here"
             onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => e.key === "Enter" && fileInputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
@@ -377,13 +317,27 @@ export default function NewAssignmentPage() {
               </div>
             </dl>
 
+            {/* Shown only when the deterministic word/question-count check
+                disagreed with the AI's own total by enough to rescale it --
+                most analyses won't show this. Transparent about what
+                happened rather than silently swapping the number. */}
+            {aiResult.estimateAdjustment && (
+              <p className="text-dim text-xs -mt-1">
+                Adjusted from the AI&rsquo;s initial ~{aiResult.estimateAdjustment.originalAiHours}h
+                estimate based on {aiResult.estimateAdjustment.detail}.
+              </p>
+            )}
+
             <section aria-labelledby="sections-heading">
               <h3 id="sections-heading" className="text-xs text-dim font-medium mb-2 uppercase tracking-wider">
                 Proposed sections
               </h3>
               <ul className="space-y-2">
+                {/* aiResult is swapped as a whole on every re-analysis (never
+                    spliced in place), so a plain index key would have been
+                    safe here too -- this just avoids the code-smell. */}
                 {aiResult.sections.map((section, i) => (
-                  <li key={i} className="flex items-start justify-between gap-3 py-2 border-b border-indigo/10 last:border-0">
+                  <li key={`${section.name}-${i}`} className="flex items-start justify-between gap-3 py-2 border-b border-indigo/10 last:border-0">
                     <div className="flex-1 min-w-0">
                       <p className="text-text text-sm font-medium leading-snug">{section.name}</p>
                       {section.description && (
@@ -406,7 +360,7 @@ export default function NewAssignmentPage() {
                 </h3>
                 <ul className="space-y-1.5">
                   {aiResult.checklist.map((item, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs text-muted">
+                    <li key={`${item.label}-${i}`} className="flex items-start gap-2 text-xs text-muted">
                       <span className="text-green mt-0.5 shrink-0"><CheckIcon /></span>
                       <span>{item.label}</span>
                     </li>
