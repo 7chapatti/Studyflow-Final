@@ -1,5 +1,11 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+This project is an AI assisted assignment planning website.
+##Features
+User can add assignments via uploading files or by typing a brief which is then analysed by an AI and broken down into sub tasks with time estimations and breakdown then added to a calendar once the user confirms. 
+User can add blocked times (times they will not be available). These times are ignored when auto adjusting the calendar.
+Calendar is made up of draggable blocks so blocked times and tasks can be shuffled around after clicking the edit button.
+Free tier and paid tiers, benefits are listed when clicking upgrade. 
 ## Getting Started
 
 First, run the development server:
