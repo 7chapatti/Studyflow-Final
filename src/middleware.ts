@@ -26,8 +26,6 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Always call getUser() — never getSession() — getSession() can be spoofed
-  // getUser() validates the JWT with Supabase's server every time
   const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
 
@@ -47,7 +45,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // After the isAuthOnly redirect block, add:
   if (pathname === "/" && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
