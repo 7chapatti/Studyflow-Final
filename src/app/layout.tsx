@@ -15,6 +15,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  // Required for Next to resolve the relative OG/Twitter image paths below
+  // into absolute URLs -- without it, social platforms that can't resolve
+  // a relative URL just show no preview image at all.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
     default: "StudyFlow — Personal Study Planner",
     template: "%s | StudyFlow",
@@ -22,6 +26,23 @@ export const metadata: Metadata = {
   description:
     "AI-powered study planner that breaks your assignments into tasks and schedules them around your life.",
   robots: { index: true, follow: true },
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "StudyFlow — Personal Study Planner",
+    description:
+      "AI-powered study planner that breaks your assignments into tasks and schedules them around your life.",
+    url: "/",
+    siteName: "StudyFlow",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "StudyFlow — Personal Study Planner",
+    description:
+      "AI-powered study planner that breaks your assignments into tasks and schedules them around your life.",
+  },
 };
 
 export default function RootLayout({
