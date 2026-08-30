@@ -39,7 +39,7 @@ export default function SignupPage() {
       password: result.data.password,
       options: {
         data: { name: result.data.name },
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: `${window.location.origin}/auth/callback`, // must go through callback route to exchange code for session
       },
     });
 
