@@ -1,15 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogInSchema } from "@/lib/validation";
 
+// useSearchParams() opts the page out of static rendering unless it is
+// wrapped in a Suspense boundary -- without this, `next build` fails
+// outright trying to prerender this page (see
+// https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout).
+// The actual form is unaffected either way -- this only ever renders
+// client-side, and the fallback below is invisible in practice.
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") ?? "/dashboard";
+
+  // Only ever navigate to a same-site path. `redirectTo` comes straight from
+  // the URL, so without this check a crafted link like
+  // `/login?redirectTo=https://evil.example` (or a protocol-relative
+  // `//evil.example`) could send a successfully-authenticated user
+  // somewhere off-site immediately after login.
+  const requestedRedirect = searchParams.get("redirectTo");
+  const redirectTo =
+    requestedRedirect && requestedRedirect.startsWith("/") && !requestedRedirect.startsWith("//")
+      ? requestedRedirect
+      : "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
