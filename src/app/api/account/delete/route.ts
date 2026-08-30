@@ -1,7 +1,8 @@
-// src/app/api/account/delete/route.ts
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/api";
 import { createServiceClient } from "@/lib/supabase/server";
+import { stripe } from "@/lib/stripe";
+import { logger } from "@/lib/logger";
 
 const STORAGE_BUCKET = "briefs";
 
@@ -9,8 +10,23 @@ export async function DELETE() {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
 
-  const { user } = auth;
+  const { user, profile } = auth;
   const supabase = createServiceClient();
+
+  if (profile.stripe_customer_id) {
+    try {
+      const subscriptions = await stripe.subscriptions.list({
+        customer: profile.stripe_customer_id,
+        status: "active",
+      });
+      await Promise.all(
+        subscriptions.data.map((sub) => stripe.subscriptions.cancel(sub.id))
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      logger.error("Failed to cancel Stripe subscription during account deletion", { detail: message });
+    }
+  }
 
   const { data: files } = await supabase.storage
     .from(STORAGE_BUCKET)
@@ -28,7 +44,7 @@ export async function DELETE() {
     .eq("id", user.id);
 
   if (profileDeleteError) {
-    console.error("Profile delete failed:", profileDeleteError);
+    logger.error("Profile delete failed", { detail: profileDeleteError });
     return NextResponse.json(
       { success: false, error: "Failed to delete account data." },
       { status: 500 }
@@ -37,7 +53,7 @@ export async function DELETE() {
 
   const { error: authDeleteError } = await supabase.auth.admin.deleteUser(user.id);
   if (authDeleteError) {
-    console.error("Auth delete failed:", authDeleteError);
+    logger.error("Auth delete failed", { detail: authDeleteError });
     return NextResponse.json(
       { success: false, error: "Failed to delete account." },
       { status: 500 }
