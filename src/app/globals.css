@@ -33,4 +33,4 @@ html { scroll-behavior: smooth; }
 ::-webkit-scrollbar-thumb { background: #2D3F5A; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #64748B; }
 
-input[type="date"] { color-scheme: dark; }
+input[type="date"] { color-scheme: dark; }{ color-scheme: dark; }
