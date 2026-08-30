@@ -20,6 +20,7 @@ export interface Profile {
   storage_used_bytes: number;
   google_calendar_connected: boolean;
   timezone: string;
+  stripe_customer_id: string | null;
   created_at: string;
 }
 
@@ -28,7 +29,7 @@ export interface Assignment {
   user_id: string;
   name: string;
   description: string | null;
-  deadline: string; // ISO datetime string
+  deadline: string; 
   priority: Priority;
   estimated_hours: number;
   colour_index: number;
@@ -69,7 +70,7 @@ export interface ScheduledBlock {
   id: string;
   user_id: string;
   task_id: string;
-  start_time: string; // ISO datetime
+  start_time: string; 
   end_time: string;
   google_event_id: string | null;
   is_missed: boolean;
@@ -81,8 +82,8 @@ export interface BlockedTime {
   id: string;
   user_id: string;
   label: string;
-  days: string[]; // ['Mon', 'Wed']
-  start_hour: number; // 24h float e.g. 9.5 = 09:30
+  days: string[]; 
+  start_hour: number; 
   end_hour: number;
   repeat_weekly: boolean;
   created_at: string;
@@ -97,12 +98,10 @@ export interface PaceLog {
   logged_at: string;
 }
 
-// ── Scheduling ──────────────────────────────────────────────────────────────
-
 export interface TimeSlot {
   start: Date;
   end: Date;
-  weight: number; // fatigue-adjusted weight 0–1
+  weight: number; 
 }
 
 export interface ScheduledBlockInsert {
@@ -111,8 +110,6 @@ export interface ScheduledBlockInsert {
   start_time: string;
   end_time: string;
 }
-
-// ── AI responses ─────────────────────────────────────────────────────────────
 
 export interface AISection {
   name: string;
@@ -132,10 +129,13 @@ export interface AIAnalysisResult {
   estimatedHours: number;
   sections: AISection[];
   checklist: AIChecklistItem[];
+  estimateAdjustment?: {
+    ruleBasedHours: number;
+    basis: "word_count" | "question_count";
+    detail: string;
+    originalAiHours: number;
+  };
 }
-
-// ── Tier limits ───────────────────────────────────────────────────────────────
-
 export const TIER_LIMITS = {
   free: {
     activeAssignments: 2,
