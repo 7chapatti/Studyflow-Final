@@ -1,15 +1,20 @@
-// src/app/api/schedule/run/route.ts
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/api";
 import { createClient } from "@/lib/supabase/server";
-import { scheduleTasks } from "@/lib/scheduler";
+import { scheduleTasks, FATIGUE_WEIGHTS, blockOverlapsBlockedTimes } from "@/lib/scheduler";
 import { calculatePaceRatio } from "@/lib/pace";
+import { buildPersonalHourWeights, type HourObservation } from "@/lib/peak-hours";
+import { toZonedTime } from "date-fns-tz";
 import type { Task, Assignment, BlockedTime, ScheduledBlock } from "@/types";
+import { logger } from "@/lib/logger";
+
+const PEAK_HOURS_LOOKBACK_DAYS = 120;
+const PEAK_HOURS_MAX_BLOCKS = 300;
 
 export async function POST(request: Request) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
-  const { user } = auth;
+  const { user, profile } = auth;
 
   let assignmentId: string | null = null;
   try {
@@ -54,7 +59,7 @@ export async function POST(request: Request) {
   const { data: tasksRaw, error: tasksError } = await tasksQuery;
 
   if (tasksError) {
-    console.error("Tasks fetch error:", tasksError);
+    logger.error("Tasks fetch error", { detail: tasksError });
     return NextResponse.json(
       { success: false, error: "Failed to fetch tasks." },
       { status: 500 }
@@ -69,7 +74,7 @@ export async function POST(request: Request) {
     .eq("user_id", user.id);
 
   if (blockedTimesError) {
-    console.error("Blocked times fetch error:", blockedTimesError);
+    logger.error("Blocked times fetch error", { detail: blockedTimesError });
     return NextResponse.json(
       { success: false, error: "Failed to fetch blocked times." },
       { status: 500 }
@@ -83,7 +88,7 @@ export async function POST(request: Request) {
     .gte("end_time", new Date().toISOString());
 
   if (existingBlocksError) {
-    console.error("Scheduled blocks fetch error:", existingBlocksError);
+    logger.error("Scheduled blocks fetch error", { detail: existingBlocksError });
     return NextResponse.json(
       { success: false, error: "Failed to fetch existing schedule." },
       { status: 500 }
@@ -98,7 +103,7 @@ export async function POST(request: Request) {
     .limit(20);
 
   if (paceLogError) {
-    console.error("Pace log fetch error:", paceLogError);
+    logger.error("Pace log fetch error", { detail: paceLogError });
     return NextResponse.json(
       { success: false, error: "Failed to fetch pace history." },
       { status: 500 }
@@ -106,15 +111,54 @@ export async function POST(request: Request) {
   }
 
   const paceRatio = calculatePaceRatio(paceLogRaw ?? []);
+  const lookbackCutoff = new Date(
+    Date.now() - PEAK_HOURS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const { data: pastBlocksRaw, error: pastBlocksError } = await supabase
+    .from("scheduled_blocks")
+    .select("start_time, is_missed")
+    .eq("user_id", user.id)
+    .lt("end_time", new Date().toISOString())
+    .gte("start_time", lookbackCutoff)
+    .order("start_time", { ascending: false })
+    .limit(PEAK_HOURS_MAX_BLOCKS);
+
+  if (pastBlocksError) {
+    logger.error("Past blocks fetch error (peak-hours)", { detail: pastBlocksError });
+  }
+
+  const hourObservations: HourObservation[] = (pastBlocksRaw ?? []).map((b) => ({
+    hour: toZonedTime(new Date(b.start_time), profile.timezone).getHours(),
+    success: !b.is_missed,
+  }));
+
+  const personalHourWeights = buildPersonalHourWeights(hourObservations, FATIGUE_WEIGHTS);
 
   const nowIso = new Date().toISOString();
   const taskIdsToReschedule = tasks.map((t) => t.id);
 
-  const blocksToReplace = (existingBlocksRaw ?? []).filter(
+  const candidateBlocks = (existingBlocksRaw ?? []).filter(
     (block) =>
       taskIdsToReschedule.includes(block.task_id) &&
       new Date(block.start_time) >= new Date(nowIso)
   ) as ScheduledBlock[];
+  
+  const blockedTimesForValidityCheck = (blockedTimesRaw ?? []) as BlockedTime[];
+
+  const blocksToReplace = candidateBlocks.filter((block) =>
+    blockOverlapsBlockedTimes(block, blockedTimesForValidityCheck, profile.timezone)
+  );
+  const validBlocks = candidateBlocks.filter(
+    (block) => !blockOverlapsBlockedTimes(block, blockedTimesForValidityCheck, profile.timezone)
+  );
+
+  const alreadyScheduledHours: Record<string, number> = {};
+  for (const block of validBlocks) {
+    const hours =
+      (new Date(block.end_time).getTime() - new Date(block.start_time).getTime()) / 3_600_000;
+    alreadyScheduledHours[block.task_id] = (alreadyScheduledHours[block.task_id] ?? 0) + hours;
+  }
 
   if (blocksToReplace.length > 0) {
     const { error: deleteError } = await supabase
@@ -123,7 +167,7 @@ export async function POST(request: Request) {
       .in("id", blocksToReplace.map((b) => b.id));
 
     if (deleteError) {
-      console.error("Block delete error:", deleteError);
+      logger.error("Block delete error", { detail: deleteError });
       return NextResponse.json(
         { success: false, error: "Failed to clear old schedule." },
         { status: 500 }
@@ -138,7 +182,7 @@ export async function POST(request: Request) {
     .gte("end_time", new Date().toISOString());
 
   if (refreshedBlocksError) {
-    console.error("Scheduled blocks refetch error:", refreshedBlocksError);
+    logger.error("Scheduled blocks refetch error", { detail: refreshedBlocksError });
     return NextResponse.json(
       { success: false, error: "Failed to refresh existing schedule." },
       { status: 500 }
@@ -157,6 +201,10 @@ export async function POST(request: Request) {
     blockedTimes: (blockedTimesRaw ?? []) as BlockedTime[],
     existingBlocks: (refreshedBlocksRaw ?? []) as ScheduledBlock[],
     paceRatio,
+
+    timezone: profile.timezone,
+    personalHourWeights,
+    alreadyScheduledHours,
   });
 
   if (blocks.length > 0) {
@@ -170,7 +218,7 @@ export async function POST(request: Request) {
       .insert(blocksWithPanic);
 
     if (insertError) {
-      console.error("Block insert error:", insertError);
+      logger.error("Block insert error", { detail: insertError });
 
       if (blocksToReplace.length > 0) {
         const restoreBlocks = blocksToReplace.map((b) => ({
@@ -189,7 +237,7 @@ export async function POST(request: Request) {
           .insert(restoreBlocks);
 
         if (restoreError) {
-          console.error("Failed to restore original blocks:", restoreError);
+          logger.error("Failed to restore original blocks", { detail: restoreError });
         }
       }
 
