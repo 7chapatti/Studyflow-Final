@@ -6,7 +6,6 @@ function safeRedirect(origin: string, next: string) {
     const url = new URL(next, origin);
     if (url.origin === origin) return url.toString();
   } catch {
-    // fall through to default
   }
 
   return `${origin}/dashboard`;
