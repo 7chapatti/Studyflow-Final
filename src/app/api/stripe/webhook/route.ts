@@ -1,7 +1,7 @@
-// src/app/api/stripe/webhook/route.ts
 import { NextResponse } from "next/server";
 import { stripe, PLANS } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase/server";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -13,6 +13,13 @@ const PRICE_TO_TIER: Record<string, PlanTier> = {
   [PLANS.pro_monthly.priceId]: "pro",
   [PLANS.pro_yearly.priceId]: "pro",
 };
+
+function resolveTierFromSubscription(subscription: {
+  items: { data: { price: { id: string } }[] };
+}): PlanTier | null {
+  const priceId = subscription.items.data.find((item) => PRICE_TO_TIER[item.price.id])?.price.id;
+  return priceId ? PRICE_TO_TIER[priceId] : null;
+}
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -34,24 +41,21 @@ export async function POST(request: Request) {
     );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("Webhook signature verification failed:", message);
+    logger.error("Webhook signature verification failed", { detail: message });
     return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
   }
 
   const supabase = createServiceClient();
-
-  // Idempotency: insert the Stripe event id once, and bail out on duplicates.
   const { error: logError } = await supabase
     .from("stripe_webhook_events")
     .insert({ id: event.id, event_type: event.type });
 
   if (logError) {
-    // Postgres unique violation on duplicate event delivery.
     if (logError.code === "23505") {
       return NextResponse.json({ received: true, duplicate: true });
     }
 
-    console.error("Failed to log Stripe event:", logError);
+    logger.error("Failed to log Stripe event", { detail: logError });
     return NextResponse.json(
       { error: "Failed to record event." },
       { status: 500 }
@@ -71,7 +75,7 @@ export async function POST(request: Request) {
         const plan = session.metadata?.plan;
 
         if (!userId || !plan || !(plan === "premium" || plan === "pro")) {
-          console.error("Missing or invalid metadata in checkout session:", session.id);
+          logger.error("Missing or invalid metadata in checkout session", { detail: session.id });
           break;
         }
 
@@ -84,7 +88,7 @@ export async function POST(request: Request) {
           .eq("id", userId);
 
         if (error) {
-          console.error("Failed to apply checkout upgrade:", error);
+          logger.error("Failed to apply checkout upgrade", { detail: error });
           return NextResponse.json(
             { error: "Failed to apply upgrade." },
             { status: 500 }
@@ -103,7 +107,7 @@ export async function POST(request: Request) {
           .eq("stripe_customer_id", subscription.customer);
 
         if (error) {
-          console.error("Failed to downgrade cancelled subscription:", error);
+          logger.error("Failed to downgrade cancelled subscription", { detail: error });
           return NextResponse.json(
             { error: "Failed to apply cancellation." },
             { status: 500 }
@@ -119,14 +123,9 @@ export async function POST(request: Request) {
           cancel_at_period_end?: boolean;
           items: { data: { price: { id: string } }[] };
         };
-
-        // If cancellation is scheduled, keep the current tier until deleted/cycle end.
         if (subscription.cancel_at_period_end) break;
 
-        const priceId = subscription.items.data.find((item) => PRICE_TO_TIER[item.price.id])
-          ?.price.id;
-
-        const newTier = priceId ? PRICE_TO_TIER[priceId] : null;
+        const newTier = resolveTierFromSubscription(subscription);
         if (!newTier) break;
 
         const { error } = await supabase
@@ -135,7 +134,7 @@ export async function POST(request: Request) {
           .eq("stripe_customer_id", subscription.customer);
 
         if (error) {
-          console.error("Failed to update subscription tier:", error);
+          logger.error("Failed to update subscription tier", { detail: error });
           return NextResponse.json(
             { error: "Failed to update plan." },
             { status: 500 }
@@ -147,24 +146,42 @@ export async function POST(request: Request) {
 
       case "invoice.payment_failed": {
         const invoice = event.data.object as { customer: string };
-        console.warn(`Payment failed for customer ${invoice.customer}`);
+        logger.warn(`Payment failed for customer ${invoice.customer}`);
         break;
       }
 
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as {
           customer: string;
-          subscription?: string | null;
+          subscription?: string | { id: string } | null;
+          parent?: { subscription_details?: { subscription?: string | { id: string } | null } | null } | null;
         };
+
+        const rawSubscriptionRef =
+          invoice.subscription ?? invoice.parent?.subscription_details?.subscription ?? null;
+
+        const subscriptionId =
+          typeof rawSubscriptionRef === "string" ? rawSubscriptionRef : rawSubscriptionRef?.id;
+
+        if (!subscriptionId) {
+          break;
+        }
+
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const newTier = resolveTierFromSubscription(subscription);
+
+        if (!newTier) {
+          logger.error("Could not resolve tier for renewed subscription", { detail: subscriptionId });
+          break;
+        }
 
         const { error } = await supabase
           .from("profiles")
-          .update({ tier: "premium" })
-          .eq("stripe_customer_id", invoice.customer)
-          .in("tier", ["free", "premium", "pro"]);
+          .update({ tier: newTier })
+          .eq("stripe_customer_id", invoice.customer);
 
         if (error) {
-          console.error("Failed to sync renewal payment:", error);
+          logger.error("Failed to sync renewal payment", { detail: error });
           return NextResponse.json(
             { error: "Failed to apply renewal." },
             { status: 500 }
@@ -179,7 +196,7 @@ export async function POST(request: Request) {
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("Webhook handler error:", message);
+    logger.error("Webhook handler error", { detail: message });
     return NextResponse.json(
       { error: "Webhook handler failed." },
       { status: 500 }
