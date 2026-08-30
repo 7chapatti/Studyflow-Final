@@ -2,11 +2,21 @@ import { NextResponse } from "next/server";
 import { stripe, PLANS, type PlanKey } from "@/lib/stripe";
 import { requireAuth } from "@/lib/api";
 import { createServiceClient } from "@/lib/supabase/server";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
   const { user, profile } = auth;
+  const ip = getClientIp(request);
+  const withinRateLimit = await checkRateLimit(`stripe-checkout:${ip}`, 10, 10 * 60);
+  if (!withinRateLimit) {
+    return NextResponse.json(
+      { success: false, error: "Too many requests. Please wait a few minutes and try again." },
+      { status: 429 }
+    );
+  }
 
   let plan: PlanKey;
   try {
@@ -26,8 +36,6 @@ export async function POST(request: Request) {
   }
 
   const selectedPlan = PLANS[plan];
-
-  // Don't let someone buy a plan they already have
   if (profile.tier === selectedPlan.tier) {
     return NextResponse.json(
       { success: false, error: "You are already on this plan." },
@@ -82,7 +90,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, data: { url: session.url } });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("Stripe checkout error:", message);
+    logger.error("Stripe checkout error", { detail: message });
     return NextResponse.json(
       { success: false, error: "Failed to create checkout session." },
       { status: 500 }
