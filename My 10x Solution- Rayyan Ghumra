@@ -1,0 +1,12 @@
+##Problem:
+University students often struggle to manage university assignments effectively while balancing real life responsibilities. Although they may know when an assignment is due, it can be difficult to understand how much work is required and how to fit that work around lectures, other commitments, and existing deadlines. Traditional to-do lists and calendars require students to manually break assignments into tasks and decide when they should complete them. This can lead to poor time management, last-minute work, and missed deadlines.
+
+StudyFlow uses AI to analyse an assignment, break it into manageable tasks, estimate the workload, and automatically schedule those tasks around the student's existing commitments. It then adapts the schedule based on the student's actual pace.
+
+##Concepts
+It implements the concepts below:
+API endpoints: Next.js API routes handle operations such as creating assignments, analysing briefs, running the scheduler, managing accounts and processing payments.
+Database: Supabase/PostgreSQL stores users, assignments, tasks, scheduled blocks, blocked times, pace data and subscription information.
+Authentication: Supabase Auth is used for user sign-up, login and session management, with protected routes ensuring users can only access their own data.
+LLM integration: OpenAI is used to analyse assignment descriptions and uploaded documents, extracting deliverables, requirements and estimated workload for the scheduling process.
+Webhooks: A Stripe webhook receives subscription and payment events and updates the user's subscription status in the database. The webhook also includes signature verification and duplicate-event handling.
