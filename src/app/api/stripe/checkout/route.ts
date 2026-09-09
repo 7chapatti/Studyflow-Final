@@ -36,6 +36,7 @@ export async function POST(request: Request) {
   }
 
   const selectedPlan = PLANS[plan];
+
   if (profile.tier === selectedPlan.tier) {
     return NextResponse.json(
       { success: false, error: "You are already on this plan." },
