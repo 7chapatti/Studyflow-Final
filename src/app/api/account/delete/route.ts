@@ -17,14 +17,28 @@ export async function DELETE() {
     try {
       const subscriptions = await stripe.subscriptions.list({
         customer: profile.stripe_customer_id,
-        status: "active",
+        status: "all",
       });
-      await Promise.all(
-        subscriptions.data.map((sub) => stripe.subscriptions.cancel(sub.id))
+
+      const stillBilling = subscriptions.data.filter((sub) =>
+        ["active", "trialing", "past_due", "unpaid", "incomplete"].includes(sub.status)
       );
+
+      await Promise.all(stillBilling.map((sub) => stripe.subscriptions.cancel(sub.id)));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      logger.error("Failed to cancel Stripe subscription during account deletion", { detail: message });
+      logger.error("Failed to cancel Stripe subscription during account deletion", {
+        detail: message,
+        userId: user.id,
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Couldn't confirm your subscription was cancelled, so your account wasn't deleted. Please try again, or contact support if this keeps happening.",
+        },
+        { status: 500 }
+      );
     }
   }
 
