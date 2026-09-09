@@ -15,9 +15,6 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  // Required for Next to resolve the relative OG/Twitter image paths below
-  // into absolute URLs -- without it, social platforms that can't resolve
-  // a relative URL just show no preview image at all.
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
     default: "StudyFlow — Personal Study Planner",
