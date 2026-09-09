@@ -1,11 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import type { Profile } from "@/types";
 import Link from "next/link";
 import { CheckIcon, XIcon } from "@/components/icons";
+import type { Tier } from "@/types";
+export type ViewerTier = "anonymous" | Tier;
 
 const FEATURES = [
   { label: "Active assignments", free: "2", premium: "20", pro: "100" },
@@ -23,38 +23,21 @@ const FEATURES = [
   { label: "Priority support", free: false, premium: false, pro: true },
 ];
 
-export default function UpgradePage() {
-  return (
-    <Suspense fallback={null}>
-      <UpgradePageInner />
-    </Suspense>
-  );
-}
-
-function UpgradePageInner() {
+export default function UpgradePricing({ currentTier }: { currentTier: ViewerTier }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [yearly, setYearly] = useState(false);
   const [upgrading, setUpgrading] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const upgraded = searchParams.get("upgraded");
-
-  useEffect(() => {
-    async function load() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/login"); return; }
-      const { data } = await supabase
-        .from("profiles").select("*").eq("id", user.id).single();
-      if (data) setProfile(data as Profile);
-      setLoading(false);
-    }
-    load();
-  }, [router]);
+  const isAnonymous = currentTier === "anonymous";
 
   async function handleUpgrade(tier: "premium" | "pro") {
+    if (isAnonymous) {
+      router.push("/signup");
+      return;
+    }
+
     const plan = yearly ? `${tier}_yearly` : `${tier}_monthly`;
     setUpgrading(tier);
     try {
@@ -75,16 +58,6 @@ function UpgradePageInner() {
       setUpgrading(null);
     }
   }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-navy flex items-center justify-center">
-        <span className="w-6 h-6 border-2 border-border border-t-il rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  const currentTier = profile?.tier ?? "free";
 
   const plans = [
     {
@@ -108,7 +81,7 @@ function UpgradePageInner() {
       colour: "border-indigo",
       headerColour: "text-il",
       badge: "Most popular",
-      canUpgrade: currentTier === "free",
+      canUpgrade: isAnonymous || currentTier === "free",
       isCurrent: currentTier === "premium",
     },
     {
@@ -120,7 +93,7 @@ function UpgradePageInner() {
       colour: "border-border",
       headerColour: "text-text",
       badge: null,
-      canUpgrade: currentTier === "free" || currentTier === "premium",
+      canUpgrade: isAnonymous || currentTier === "free" || currentTier === "premium",
       isCurrent: currentTier === "pro",
     },
   ];
@@ -131,13 +104,13 @@ function UpgradePageInner() {
       <header className="sticky top-0 z-20 border-b border-border bg-navy/95 backdrop-blur-sm">
         <nav className="w-full px-6 h-14 flex items-center justify-between">
           <Link
-            href="/dashboard"
+            href={isAnonymous ? "/" : "/dashboard"}
             className="font-sora text-lg font-semibold text-text hover:text-il transition-colors"
           >
             Study<span className="text-il">Flow</span>
           </Link>
           <button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push(isAnonymous ? "/" : "/dashboard")}
             className="text-muted hover:text-text text-sm transition-colors flex items-center gap-1.5"
           >
             <XIcon />
@@ -268,7 +241,7 @@ function UpgradePageInner() {
                     {upgrading === plan.key && (
                       <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
                     )}
-                    Upgrade to {plan.name}
+                    {isAnonymous ? "Sign up" : `Upgrade to ${plan.name}`}
                   </button>
                 ) : (
                   <div className="w-full text-center text-sm rounded-lg py-2.5 mt-4 text-dim">
