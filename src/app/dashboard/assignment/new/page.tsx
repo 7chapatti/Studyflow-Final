@@ -1,41 +1,11 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { toIsoWithTimezone } from "@/lib/datetime";
 import type { AIAnalysisResult, Priority } from "@/types";
 import { CheckIcon, FileIcon, SparklesIcon, UploadIcon, XIcon } from "@/components/icons";
-
-function toIsoWithTimezone(date: string, time: string, timeZone: string) {
-  const [year, month, day] = date.split("-").map(Number);
-  const [hour, minute] = time.split(":").map(Number);
-  const desiredLocalEpochMs = Date.UTC(year, month - 1, day, hour, minute, 0);
-  const guessUtcMs = desiredLocalEpochMs;
-
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date(guessUtcMs));
-
-  const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
-  const actualLocalEpochMs = Date.UTC(
-    Number(map.year),
-    Number(map.month) - 1,
-    Number(map.day),
-    Number(map.hour),
-    Number(map.minute),
-    Number(map.second)
-  );
-
-  const offsetMs = actualLocalEpochMs - desiredLocalEpochMs;
-  return new Date(guessUtcMs - offsetMs).toISOString();
-}
 
 const PRIORITY_OPTIONS: { value: Priority; label: string; colour: string }[] = [
   { value: "low",    label: "Low",    colour: "text-dim border-border" },
@@ -73,8 +43,19 @@ export default function NewAssignmentPage() {
   const [aiError, setAiError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [limitInfo, setLimitInfo] = useState<{ allowed: boolean; current: number; limit: number } | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
+
+  useEffect(() => {
+    fetch("/api/assignments/limit")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) setLimitInfo(json.data);
+      })
+      .catch(() => {
+      });
+  }, []);
 
   function addFiles(incoming: FileList | null) {
     if (!incoming) return;
@@ -141,6 +122,7 @@ export default function NewAssignmentPage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
+
       const { data: profile } = await supabase
         .from("profiles").select("timezone").eq("id", user.id).single();
       const userTimeZone = profile?.timezone ?? "Europe/London";
@@ -190,6 +172,19 @@ export default function NewAssignmentPage() {
           Describe your assignment and let StudyFlow build a plan around your schedule.
         </p>
       </header>
+
+      {limitInfo && !limitInfo.allowed && (
+        <div className="bg-amber/10 border border-amber/25 rounded-xl px-4 py-3 mb-6 text-sm">
+          <p className="text-text font-medium">
+            You&apos;re at your plan&apos;s active assignment limit ({limitInfo.current}/{limitInfo.limit}).
+          </p>
+          <p className="text-muted text-xs mt-0.5">
+            Archive an existing assignment, or{" "}
+            <a href="/upgrade" className="text-il hover:underline">upgrade your plan</a>{" "}
+            to add more.
+          </p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} noValidate className="space-y-6">
         {/* File upload */}
