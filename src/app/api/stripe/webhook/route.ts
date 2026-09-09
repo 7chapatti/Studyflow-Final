@@ -46,20 +46,34 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceClient();
+
   const { error: logError } = await supabase
     .from("stripe_webhook_events")
     .insert({ id: event.id, event_type: event.type });
 
   if (logError) {
     if (logError.code === "23505") {
-      return NextResponse.json({ received: true, duplicate: true });
-    }
+      const { data: existing, error: fetchError } = await supabase
+        .from("stripe_webhook_events")
+        .select("processed_at")
+        .eq("id", event.id)
+        .single();
 
-    logger.error("Failed to log Stripe event", { detail: logError });
-    return NextResponse.json(
-      { error: "Failed to record event." },
-      { status: 500 }
-    );
+      if (fetchError) {
+        logger.error("Failed to check existing webhook event", { detail: fetchError });
+        return NextResponse.json({ error: "Failed to record event." }, { status: 500 });
+      }
+
+      if (existing?.processed_at) {
+        return NextResponse.json({ received: true, duplicate: true });
+      }
+    } else {
+      logger.error("Failed to log Stripe event", { detail: logError });
+      return NextResponse.json(
+        { error: "Failed to record event." },
+        { status: 500 }
+      );
+    }
   }
 
   try {
@@ -123,6 +137,7 @@ export async function POST(request: Request) {
           cancel_at_period_end?: boolean;
           items: { data: { price: { id: string } }[] };
         };
+        
         if (subscription.cancel_at_period_end) break;
 
         const newTier = resolveTierFromSubscription(subscription);
@@ -201,6 +216,15 @@ export async function POST(request: Request) {
       { error: "Webhook handler failed." },
       { status: 500 }
     );
+  }
+
+  const { error: markProcessedError } = await supabase
+    .from("stripe_webhook_events")
+    .update({ processed_at: new Date().toISOString() })
+    .eq("id", event.id);
+
+  if (markProcessedError) {
+    logger.error("Failed to mark webhook event processed", { detail: markProcessedError });
   }
 
   return NextResponse.json({ received: true });
