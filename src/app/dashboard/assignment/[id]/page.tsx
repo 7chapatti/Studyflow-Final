@@ -4,14 +4,17 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getPaceStatus } from "@/lib/pace";
+import { toIsoWithTimezone } from "@/lib/datetime";
+import { UpdateAssignmentSchema } from "@/lib/validation";
 import type {
   Assignment,
   Task,
   ChecklistItem,
   PaceLog,
+  Priority,
 } from "@/types";
 import { COLOUR_PALETTE } from "@/types";
-import { ArchiveIcon, BrainIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ClockIcon, FlagIcon, PlayIcon } from "@/components/icons";
+import { ArchiveIcon, BrainIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ClockIcon, FlagIcon, PencilIcon, PlayIcon } from "@/components/icons";
 
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(value * 100);
@@ -67,6 +70,16 @@ export default function AssignmentPage() {
   const [paceLog, setPaceLog] = useState<PaceLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [timezone, setTimezone] = useState("Europe/London");
+
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editDeadlineDate, setEditDeadlineDate] = useState("");
+  const [editDeadlineTime, setEditDeadlineTime] = useState("");
+  const [editPriority, setEditPriority] = useState<Priority>("normal");
+  const [editError, setEditError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const loadData = useCallback(async () => {
     const supabase = createClient();
@@ -78,11 +91,13 @@ export default function AssignmentPage() {
       { data: taskData },
       { data: checkData },
       { data: paceData },
+      { data: profileData },
     ] = await Promise.all([
       supabase.from("assignments").select("*").eq("id", id).eq("user_id", user.id).single(),
       supabase.from("tasks").select("*").eq("assignment_id", id).order("order_index"),
       supabase.from("assignment_checklist").select("*").eq("assignment_id", id),
       supabase.from("pace_log").select("*").eq("user_id", user.id).order("logged_at", { ascending: false }).limit(20),
+      supabase.from("profiles").select("timezone").eq("id", user.id).single(),
     ]);
 
     if (asgnErr || !asgn) { setError("Assignment not found."); setLoading(false); return; }
@@ -91,6 +106,7 @@ export default function AssignmentPage() {
     setTasks((taskData ?? []) as Task[]);
     setChecklist((checkData ?? []) as ChecklistItem[]);
     setPaceLog((paceData ?? []) as PaceLog[]);
+    setTimezone(profileData?.timezone ?? "Europe/London");
     setLoading(false);
   }, [id, router]);
 
@@ -118,6 +134,7 @@ export default function AssignmentPage() {
       status: isDone ? "done" : "todo",
       completed_at: isDone ? now : null,
     };
+
     if (isDone && task.started_at) {
       const actualHours =
         (Date.now() - new Date(task.started_at).getTime()) / 3_600_000;
@@ -216,6 +233,79 @@ export default function AssignmentPage() {
     router.push("/dashboard");
   }
 
+  function handleStartEdit() {
+    if (!assignment) return;
+    const deadline = new Date(assignment.deadline);
+    setEditName(assignment.name);
+    setEditDescription(assignment.description ?? "");
+    const dateParts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(deadline);
+    const timeParts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).format(deadline);
+    setEditDeadlineDate(dateParts);
+    setEditDeadlineTime(timeParts);
+    setEditPriority(assignment.priority);
+    setEditError("");
+    setEditing(true);
+  }
+
+  function handleCancelEdit() {
+    setEditing(false);
+    setEditError("");
+  }
+
+  async function handleSaveEdit() {
+    if (!assignment) return;
+    setEditError("");
+
+    let deadlineIso: string;
+    try {
+      deadlineIso = toIsoWithTimezone(editDeadlineDate, editDeadlineTime || "23:59", timezone);
+    } catch {
+      setEditError("Please enter a valid deadline.");
+      return;
+    }
+
+    const parsed = UpdateAssignmentSchema.safeParse({
+      name: editName,
+      description: editDescription || undefined,
+      deadline: deadlineIso,
+      priority: editPriority,
+    });
+
+    if (!parsed.success) {
+      setEditError(parsed.error.issues[0]?.message ?? "Please check the form and try again.");
+      return;
+    }
+
+    setSaving(true);
+    const supabase = createClient();
+    const { error: updateError } = await supabase
+      .from("assignments")
+      .update({
+        name: parsed.data.name,
+        description: parsed.data.description ?? null,
+        deadline: parsed.data.deadline,
+        priority: parsed.data.priority,
+      })
+      .eq("id", id);
+    setSaving(false);
+
+    if (updateError) {
+      setEditError("Failed to save changes. Please try again.");
+      return;
+    }
+
+    setAssignment((prev) => prev ? {
+      ...prev,
+      name: parsed.data.name!,
+      description: parsed.data.description ?? null,
+      deadline: parsed.data.deadline!,
+      priority: parsed.data.priority!,
+    } : prev);
+    setEditing(false);
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -273,24 +363,119 @@ export default function AssignmentPage() {
 
       {/* Assignment header */}
       <header className="bg-card border border-border rounded-xl p-5 mb-6" style={{ borderLeft: `3px solid ${colour.border}` }}>
-        <div className="flex items-start justify-between gap-4 mb-3">
-          <h1 className="font-sora text-xl font-semibold text-text leading-snug">
-            {assignment.name}
-          </h1>
-          <div className="flex items-center gap-2 shrink-0">
-            <PriorityBadge priority={assignment.priority} />
-            {assignment.status === "complete" && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium text-green bg-green/10">
-                Complete
-              </span>
-            )}
+        {editing ? (
+          <div className="space-y-3 mb-4">
+            <div>
+              <label className="block text-xs text-dim mb-1" htmlFor="edit-name">Name</label>
+              <input
+                id="edit-name"
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full bg-navy2 border border-border rounded-lg px-3 py-2 text-text text-sm focus:outline-none focus:border-indigo/50"
+                maxLength={200}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-dim mb-1" htmlFor="edit-description">Description</label>
+              <textarea
+                id="edit-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={3}
+                className="w-full bg-navy2 border border-border rounded-lg px-3 py-2 text-text text-sm focus:outline-none focus:border-indigo/50 resize-none"
+                maxLength={5000}
+              />
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <div>
+                <label className="block text-xs text-dim mb-1" htmlFor="edit-deadline-date">Deadline</label>
+                <input
+                  id="edit-deadline-date"
+                  type="date"
+                  value={editDeadlineDate}
+                  onChange={(e) => setEditDeadlineDate(e.target.value)}
+                  className="bg-navy2 border border-border rounded-lg px-3 py-2 text-text text-sm focus:outline-none focus:border-indigo/50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-dim mb-1" htmlFor="edit-deadline-time">Time</label>
+                <input
+                  id="edit-deadline-time"
+                  type="time"
+                  value={editDeadlineTime}
+                  onChange={(e) => setEditDeadlineTime(e.target.value)}
+                  className="bg-navy2 border border-border rounded-lg px-3 py-2 text-text text-sm focus:outline-none focus:border-indigo/50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-dim mb-1" htmlFor="edit-priority">Priority</label>
+                <select
+                  id="edit-priority"
+                  value={editPriority}
+                  onChange={(e) => setEditPriority(e.target.value as Priority)}
+                  className="bg-navy2 border border-border rounded-lg px-3 py-2 text-text text-sm focus:outline-none focus:border-indigo/50"
+                >
+                  <option value="low">Low</option>
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+            </div>
+            {editError && <p className="text-red text-xs">{editError}</p>}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving}
+                className="flex items-center gap-1.5 bg-indigo hover:bg-il text-white text-sm font-medium rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
+              >
+                {saving && <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />}
+                Save
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                disabled={saving}
+                className="flex items-center gap-1.5 text-muted hover:text-text text-sm rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+            <p className="text-dim text-xs">
+              Note: changing the deadline doesn&apos;t automatically move your scheduled study blocks — click Organise on the calendar afterwards to update them.
+            </p>
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <h1 className="font-sora text-xl font-semibold text-text leading-snug">
+                {assignment.name}
+              </h1>
+              <div className="flex items-center gap-2 shrink-0">
+                <PriorityBadge priority={assignment.priority} />
+                {assignment.status === "complete" && (
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium text-green bg-green/10">
+                    Complete
+                  </span>
+                )}
+                {assignment.status !== "archived" && (
+                  <button
+                    onClick={handleStartEdit}
+                    aria-label="Edit assignment"
+                    className="text-dim hover:text-text transition-colors p-1"
+                  >
+                    <PencilIcon />
+                  </button>
+                )}
+              </div>
+            </div>
 
-        {assignment.description && (
-          <p className="text-muted text-sm leading-relaxed mb-3">
-            {assignment.description}
-          </p>
+            {assignment.description && (
+              <p className="text-muted text-sm leading-relaxed mb-3">
+                {assignment.description}
+              </p>
+            )}
+          </>
         )}
 
         <div className="flex flex-wrap gap-4 text-sm text-muted mb-4">
