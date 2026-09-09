@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { requireAuth } from "@/lib/api";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
+
 export async function POST(request: Request) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
