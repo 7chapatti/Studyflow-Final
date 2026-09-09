@@ -32,7 +32,6 @@ export async function POST(request: Request) {
       : 0;
 
   const colourIndex = Math.floor(Math.random() * 6);
-
   const { data: assignmentId, error: rpcError } = await supabase.rpc("create_assignment_atomic", {
     p_name: name,
     p_description: description || null,
