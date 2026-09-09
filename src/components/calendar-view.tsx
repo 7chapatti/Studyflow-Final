@@ -186,6 +186,7 @@ interface CalendarViewProps {
   initialBlocksRaw?: RawScheduledBlockRow[];
   initialBlockedTimesRaw?: RawBlockedTimeRow[];
   initialAssignments?: Assignment[];
+  newlyMissedCount?: number;
 }
 
 export default function CalendarView({
@@ -193,6 +194,7 @@ export default function CalendarView({
   initialBlocksRaw,
   initialBlockedTimesRaw,
   initialAssignments,
+  newlyMissedCount,
 }: CalendarViewProps) {
   const router = useRouter();
   const desktopGridRef = useRef<HTMLDivElement>(null);
@@ -235,7 +237,8 @@ export default function CalendarView({
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
-    setTimeout(() => setToast(""), 3000);
+    const duration = Math.min(3000 + Math.max(0, msg.length - 40) * 40, 8000);
+    setTimeout(() => setToast(""), duration);
   }, []);
 
   const loadData = useCallback(async () => {
@@ -272,6 +275,22 @@ export default function CalendarView({
     loadData();
   }, [loadData]);
   useEffect(() => { setEditMode(false); }, [weekBase]);
+  
+  const hasShownMissedNudge = useRef(false);
+  useEffect(() => {
+    if (hasShownMissedNudge.current) return;
+    hasShownMissedNudge.current = true;
+    if (newlyMissedCount && newlyMissedCount > 0) {
+      const id = setTimeout(() => {
+        showToast(
+          newlyMissedCount === 1
+            ? "1 task was missed — click Organise to reschedule it"
+            : `${newlyMissedCount} tasks were missed — click Organise to reschedule them`
+        );
+      }, 0);
+      return () => clearTimeout(id);
+    }
+  }, [newlyMissedCount, showToast]);
 
   function getGridPos(clientX: number, clientY: number, isMobile: boolean) {
     const ref = isMobile ? mobileGridRef.current : desktopGridRef.current;
@@ -441,6 +460,7 @@ export default function CalendarView({
             drop.startHour < b.endHour && drop.endHour > b.startHour
         );
         if (!target) return;
+
         const mergedStart = Math.min(bt.startHour, target.startHour, drop.startHour);
         const mergedEnd = Math.max(bt.endHour, target.endHour, drop.endHour);
         const mergedLabel = bt.label === target.label ? bt.label : `${bt.label} + ${target.label}`;
@@ -525,7 +545,6 @@ export default function CalendarView({
       const thisDay = DAYS[block.dayIndex];
 
       if (bt.isMerged) {
-        // Remove this day from every source row that contributed to the merge
         const ops = bt.sourceIds.map(async (sourceId) => {
           const { data: original } = await supabase
             .from("blocked_times").select("days").eq("id", sourceId).single();
@@ -563,6 +582,7 @@ export default function CalendarView({
   async function separateBlocks(bt: CalendarBlockedTime) {
     setContextMenu(null);
     if (!bt.isMerged) return;
+
     const supabase = createClient();
     const { data: rows } = await supabase
       .from("blocked_times")
@@ -570,6 +590,7 @@ export default function CalendarView({
       .in("id", bt.sourceIds);
 
     if (!rows || rows.length === 0) { await loadData(); return; }
+    
     const thisDay = DAYS[bt.dayIndex];
     const separated: CalendarBlockedTime[] = rows
       .filter((r) => (r.days as string[]).includes(thisDay))
@@ -585,7 +606,6 @@ export default function CalendarView({
         type: "blocked" as const,
       }));
 
-    // Replace merged block with separated ones in state
     setBlockedTimes((prev) => {
       const filtered = prev.filter((b) => b.id !== bt.id);
       return [...filtered, ...separated];
@@ -601,12 +621,20 @@ export default function CalendarView({
       const json = await res.json();
       if (json.success) {
         await loadData();
-        if (json.data.atRisk?.length > 0) showToast(`⚠ "${json.data.atRisk[0].assignmentName}" may not finish before deadline.`);
-        else showToast("✓ Tasks rescheduled around your blocked times");
+        const missedMessages: string[] = json.data.missedTaskMessages ?? [];
+        if (missedMessages.length > 0) {
+          const extra = missedMessages.length > 1 ? ` (+${missedMessages.length - 1} more)` : "";
+          showToast(`${missedMessages[0]}${extra}`);
+        } else if (json.data.atRisk?.length > 0) {
+          showToast(`⚠ "${json.data.atRisk[0].assignmentName}" may not finish before deadline.`);
+        } else {
+          showToast("✓ Tasks rescheduled around your blocked times");
+        }
       }
     } catch { showToast("Reschedule failed. Please try again."); }
     finally { setRescheduling(false); }
   }
+
   function renderTask(block: CalendarBlock, isMobile: boolean) {
     const colour = COLOUR_PALETTE[block.colourIndex % COLOUR_PALETTE.length];
     const sH = block.startTime.getHours() + block.startTime.getMinutes() / 60;
@@ -720,8 +748,6 @@ export default function CalendarView({
       </>
     );
   }
-
-  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col h-[calc(100vh-56px)]" onClick={() => setContextMenu(null)}>
