@@ -1,4 +1,3 @@
-
 export type Tier = "free" | "premium" | "pro";
 export type Priority = "low" | "normal" | "high" | "urgent";
 export type AssignmentStatus = "active" | "complete" | "archived";
@@ -29,7 +28,7 @@ export interface Assignment {
   user_id: string;
   name: string;
   description: string | null;
-  deadline: string; 
+  deadline: string;
   priority: Priority;
   estimated_hours: number;
   colour_index: number;
@@ -70,7 +69,7 @@ export interface ScheduledBlock {
   id: string;
   user_id: string;
   task_id: string;
-  start_time: string; 
+  start_time: string;
   end_time: string;
   google_event_id: string | null;
   is_missed: boolean;
@@ -82,7 +81,7 @@ export interface BlockedTime {
   id: string;
   user_id: string;
   label: string;
-  days: string[]; 
+  days: string[];
   start_hour: number; 
   end_hour: number;
   repeat_weekly: boolean;
@@ -136,6 +135,7 @@ export interface AIAnalysisResult {
     originalAiHours: number;
   };
 }
+
 export const TIER_LIMITS = {
   free: {
     activeAssignments: 2,
