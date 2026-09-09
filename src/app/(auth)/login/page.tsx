@@ -6,12 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogInSchema } from "@/lib/validation";
 
-// useSearchParams() opts the page out of static rendering unless it is
-// wrapped in a Suspense boundary -- without this, `next build` fails
-// outright trying to prerender this page (see
-// https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout).
-// The actual form is unaffected either way -- this only ever renders
-// client-side, and the fallback below is invisible in practice.
 export default function LoginPage() {
   return (
     <Suspense fallback={null}>
@@ -23,12 +17,6 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  // Only ever navigate to a same-site path. `redirectTo` comes straight from
-  // the URL, so without this check a crafted link like
-  // `/login?redirectTo=https://evil.example` (or a protocol-relative
-  // `//evil.example`) could send a successfully-authenticated user
-  // somewhere off-site immediately after login.
   const requestedRedirect = searchParams.get("redirectTo");
   const redirectTo =
     requestedRedirect && requestedRedirect.startsWith("/") && !requestedRedirect.startsWith("//")
@@ -43,8 +31,6 @@ function LoginForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-
-    // Validate inputs
     const result = LogInSchema.safeParse({ email, password });
     if (!result.success) {
         setError(result.error.issues[0].message);
@@ -60,7 +46,6 @@ function LoginForm() {
     });
 
     if (authError) {
-      // Don't reveal whether email exists — generic message
       setError("Invalid email or password.");
       setLoading(false);
       return;
