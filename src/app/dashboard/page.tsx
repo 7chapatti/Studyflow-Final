@@ -2,11 +2,14 @@ import { redirect } from "next/navigation";
 import { addDays, startOfWeek } from "date-fns";
 import CalendarView from "@/components/calendar-view";
 import { createClient } from "@/lib/supabase/server";
+import { flagMissedBlocks } from "@/lib/api";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+  const newlyMissed = await flagMissedBlocks(user.id);
+
   const now = new Date();
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const weekEnd = addDays(weekStart, 6);
@@ -30,6 +33,7 @@ export default async function DashboardPage() {
       initialBlocksRaw={blocksRaw ?? []}
       initialBlockedTimesRaw={btRaw ?? []}
       initialAssignments={asgnRaw ?? []}
+      newlyMissedCount={newlyMissed.length}
     />
   );
 }
