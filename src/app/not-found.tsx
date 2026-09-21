@@ -14,7 +14,7 @@ export default function NotFound() {
         <div className="flex items-center justify-center gap-3">
           <Link
             href="/dashboard"
-            className="bg-indigo hover:bg-il text-white text-sm font-medium rounded-lg px-4 py-2.5 transition-colors"
+            className="bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-4 py-2.5 transition-colors"
           >
             Go to dashboard
           </Link>
