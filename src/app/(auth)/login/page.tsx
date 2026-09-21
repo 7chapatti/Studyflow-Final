@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogInSchema } from "@/lib/validation";
-
 export default function LoginPage() {
   return (
     <Suspense fallback={null}>
@@ -31,6 +30,8 @@ function LoginForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    // Validate inputs
     const result = LogInSchema.safeParse({ email, password });
     if (!result.success) {
         setError(result.error.issues[0].message);
@@ -46,6 +47,7 @@ function LoginForm() {
     });
 
     if (authError) {
+      // Don't reveal whether email exists — generic message
       setError("Invalid email or password.");
       setLoading(false);
       return;
@@ -56,16 +58,15 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-sm">
-      <div className="bg-card border border-border rounded-2xl p-8">
-        <h1 className="font-sora text-2xl font-semibold text-text mb-1">
-          Welcome back
-        </h1>
-        <p className="text-muted text-sm mb-6">
-          Sign in to access your study planner
-        </p>
+    <section className="w-full max-w-sm bg-card border border-border border-t-2 border-t-indigo rounded-lg p-8">
+      <h1 className="font-sora text-2xl font-medium text-text mb-1">
+        Welcome back
+      </h1>
+      <p className="text-muted text-sm mb-6">
+        Sign in to access your study planner
+      </p>
 
-        <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div className="space-y-1.5">
             <label
               htmlFor="email"
@@ -113,22 +114,21 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo hover:bg-il text-white font-medium rounded-lg py-2.5 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-indigo hover:bg-il text-navy font-medium rounded-lg py-2.5 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Signing in…" : "Log in"}
           </button>
         </form>
 
-        <p className="text-center text-muted text-sm mt-6">
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/signup"
-            className="text-il hover:text-text transition-colors"
-          >
-            Sign up free
-          </Link>
-        </p>
-      </div>
-    </div>
+      <p className="text-center text-muted text-sm mt-6">
+        Don&apos;t have an account?{" "}
+        <Link
+          href="/signup"
+          className="text-il hover:text-text transition-colors"
+        >
+          Sign up free
+        </Link>
+      </p>
+    </section>
   );
 }
