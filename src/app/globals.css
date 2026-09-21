@@ -2,45 +2,59 @@
 
 @theme {
   --color-navy:   #182420;
-  --color-navy2:  #212B26;
-  --color-navy3:  #2A3630;
+  --color-navy2:  #1F2D28;
+  --color-navy3:  #27362F;
   --color-indigo: #4F8FC4;
-  --color-il:     #6BA5D6;
+  --color-il:     #7FB3E0;
+  --color-ink:    #0A1512;
   --color-text:   #F3F1E9;
-  --color-muted:  #D7DED3;
-  --color-dim:    #93A08F;
-
-  --color-green:  #5F9B5B;
-  --color-amber:  #C9924A;
-  --color-red:    #C24A3A;
-
+  --color-muted:  #B9C4BB;
+  --color-dim:    #8C998F;
+  --color-green:  #7DBB79;
+  --color-amber:  #E0B24A;
+  --color-red:    #E8806F;
   --color-border: #33413B;
-  --color-card:   #212B26;
+  --color-card:   #1F2D28;
+  --color-blocked:      #3E4A43;
+  --color-blocked-edge: #55625A;
+  --radius-lg:  0.375rem;
+  --radius-xl:  0.625rem;
+  --radius-2xl: 0.75rem;
+}
 
-  --font-sora:  "Space Grotesk", sans-serif;
-  --font-inter: "Inter", sans-serif;
+@theme inline {
+  --font-sans:    var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
 }
 
 html { scroll-behavior: smooth; }
 
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 :focus-visible {
-  outline: 2px solid var(--color-indigo);
+  outline: 2px solid #7FB3E0;
   outline-offset: 2px;
   border-radius: 4px;
 }
 :focus:not(:focus-visible) { outline: none; }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--color-navy); }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-dim); }
+::-webkit-scrollbar-track { background: #182420; }
+::-webkit-scrollbar-thumb { background: #33413B; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #8C998F; }
 
-input[type="date"] { color-scheme: dark; }
+input[type="date"], input[type="time"] { color-scheme: dark; }
 
-.grid-paper {
+.chalk-grid {
   background-image:
     linear-gradient(var(--color-border) 1px, transparent 1px),
     linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
-  background-size: 28px 28px;
-  background-position: -1px -1px;
+  background-size: 14px 14px;
 }
