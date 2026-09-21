@@ -43,6 +43,8 @@ export default function NewAssignmentPage() {
   const [aiError, setAiError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [createdAssignmentId, setCreatedAssignmentId] = useState<string | null>(null);
+  const [schedulingFailed, setSchedulingFailed] = useState(false);
   const [limitInfo, setLimitInfo] = useState<{ allowed: boolean; current: number; limit: number } | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
@@ -110,6 +112,20 @@ export default function NewAssignmentPage() {
     }
   }
 
+  async function runSchedule(assignmentId: string): Promise<boolean> {
+    try {
+      const res = await fetch("/api/schedule/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignmentId }),
+      });
+      const json = await res.json();
+      return res.ok && json.success;
+    } catch {
+      return false;
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError("");
@@ -123,9 +139,6 @@ export default function NewAssignmentPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
-      // Timezone-only fetch for the local-to-UTC deadline conversion below.
-      // This is just for a nicer UX nudge — the active-assignment limit is
-      // actually enforced server-side by create_assignment_atomic().
       const { data: profile } = await supabase
         .from("profiles").select("timezone").eq("id", user.id).single();
       const userTimeZone = profile?.timezone ?? "Europe/London";
@@ -152,18 +165,29 @@ export default function NewAssignmentPage() {
       }
 
       const assignmentId = json.data.id as string;
-
-      await fetch("/api/schedule/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignmentId }),
-      });
+      setCreatedAssignmentId(assignmentId);
+      const scheduled = await runSchedule(assignmentId);
+      if (!scheduled) {
+        setSchedulingFailed(true);
+        setSubmitting(false);
+        return;
+      }
 
       router.push(`/dashboard/assignment/${assignmentId}`);
     } catch {
       setFormError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleRetrySchedule() {
+    if (!createdAssignmentId) return;
+    setSubmitting(true);
+    const scheduled = await runSchedule(createdAssignmentId);
+    setSubmitting(false);
+    if (scheduled) {
+      router.push(`/dashboard/assignment/${createdAssignmentId}`);
     }
   }
 
@@ -456,9 +480,35 @@ export default function NewAssignmentPage() {
           </p>
         )}
 
+        {schedulingFailed && (
+          <div role="alert" className="bg-amber/10 border border-amber/25 rounded-lg px-4 py-3 space-y-2.5">
+            <p className="text-amber text-sm">
+              Your assignment was created, but placing it onto your calendar didn&apos;t go through. It
+              won&apos;t show up on your schedule until this succeeds.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleRetrySchedule}
+                disabled={submitting}
+                className="text-sm font-medium bg-amber hover:bg-amber/80 text-navy rounded-md px-3.5 py-1.5 transition-colors disabled:opacity-50"
+              >
+                {submitting ? "Retrying…" : "Retry scheduling"}
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(`/dashboard/assignment/${createdAssignmentId}`)}
+                className="text-sm text-muted hover:text-text transition-colors"
+              >
+                View assignment anyway
+              </button>
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || schedulingFailed}
           className="w-full bg-indigo hover:bg-il text-navy font-medium rounded-lg py-3 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? "Creating plan…" : "Create plan"}
