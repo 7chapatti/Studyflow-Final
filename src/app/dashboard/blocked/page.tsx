@@ -232,7 +232,7 @@ export default function BlockedTimesPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <header className="mb-8">
-        <h1 className="font-sora text-2xl font-semibold text-text mb-1">Blocked times</h1>
+        <h1 className="font-display text-2xl font-semibold text-text mb-1">Blocked times</h1>
         <p className="text-muted text-sm">
           Add times you&apos;re unavailable. StudyFlow will schedule around them automatically.
         </p>
@@ -240,7 +240,7 @@ export default function BlockedTimesPage() {
 
       {/* Add form */}
       <section aria-labelledby="add-label" className="bg-card border border-border rounded-xl p-5 mb-8">
-        <h2 id="add-label" className="font-sora text-base font-semibold text-text mb-4">
+        <h2 id="add-label" className="font-display text-base font-semibold text-text mb-4">
           Block out a time
         </h2>
         <form onSubmit={handleAdd} noValidate className="space-y-4">
@@ -290,7 +290,7 @@ export default function BlockedTimesPage() {
 
           {formError && <p role="alert" className="text-red text-xs">{formError}</p>}
 
-          <button type="submit" disabled={saving} className="flex items-center gap-2 bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-4 py-2.5 transition-colors disabled:opacity-50">
+          <button type="submit" disabled={saving} className="flex items-center gap-2 bg-indigo hover:bg-il text-ink text-sm font-medium rounded-lg px-4 py-2.5 transition-colors disabled:opacity-50">
             <PlusIcon size={14} />
             {saving ? "Saving…" : "Add to calendar"}
           </button>
@@ -300,7 +300,7 @@ export default function BlockedTimesPage() {
       {/* Current blocked times */}
       <section aria-labelledby="current-label">
         <div className="flex items-center justify-between mb-3">
-          <h2 id="current-label" className="font-sora text-base font-semibold text-text">
+          <h2 id="current-label" className="font-display text-base font-semibold text-text">
             Current blocked times
           </h2>
           {blocked.length > 0 && (
@@ -374,7 +374,7 @@ export default function BlockedTimesPage() {
                     {editError && <p role="alert" className="text-red text-xs">{editError}</p>}
 
                     <div className="flex gap-2">
-                      <button onClick={handleSaveEdit} className="flex items-center gap-1.5 bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-4 py-2 transition-colors">
+                      <button onClick={handleSaveEdit} className="flex items-center gap-1.5 bg-indigo hover:bg-il text-ink text-sm font-medium rounded-lg px-4 py-2 transition-colors">
                         <CheckIcon size={13} />
                         Save changes
                       </button>
