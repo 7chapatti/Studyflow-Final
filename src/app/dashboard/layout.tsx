@@ -82,7 +82,7 @@ export default function DashboardLayout({
         {/* Logo */}
         <Link
           href="/dashboard"
-          className="font-sora text-lg font-semibold text-text hover:text-il transition-colors shrink-0"
+          className="font-sora text-lg font-medium text-text hover:text-il transition-colors shrink-0"
         >
           Study<span className="text-il">Flow</span>
         </Link>
@@ -122,14 +122,14 @@ export default function DashboardLayout({
         {/* Sidebar */}
         <aside
           className={`
-            fixed top-14 left-0 bottom-0 w-56 bg-navy border-r border-border z-20
+            fixed top-14 left-0 bottom-0 w-56 bg-navy2 border-r border-border z-20
             flex flex-col transition-transform duration-200
             lg:static lg:translate-x-0 lg:z-auto
             ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
           `}
         >
           <nav className="flex-1 p-3 space-y-0.5" aria-label="Main navigation">
-            <p className="text-xs font-medium text-il tracking-widest uppercase px-3 py-2">
+            <p className="font-sora text-sm text-dim px-3 py-2">
               Menu
             </p>
             {NAV_ITEMS.map((item) => (
@@ -138,11 +138,11 @@ export default function DashboardLayout({
                 href={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className={`
-                  flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all
+                  flex items-center gap-3 pl-2.5 pr-3 py-2.5 text-sm transition-all border-l-2
                   ${
                     isActive(item)
-                      ? "bg-indigo/20 text-il font-medium"
-                      : "text-muted hover:bg-indigo/10 hover:text-text"
+                      ? "border-l-indigo bg-navy text-text font-medium"
+                      : "border-l-transparent text-muted hover:bg-navy/60 hover:text-text"
                   }
                 `}
                 aria-current={isActive(item) ? "page" : undefined}
