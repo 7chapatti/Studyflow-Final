@@ -180,7 +180,6 @@ function buildMergedBlockedTimes(btRaw: RawBlockedTimeRow[]): CalendarBlockedTim
   }
   return mergedBT;
 }
-
 interface CalendarViewProps {
   initialWeekBase?: string;
   initialBlocksRaw?: RawScheduledBlockRow[];
@@ -330,7 +329,7 @@ export default function CalendarView({
       return s < bE && e > bS;
     });
   }
-  
+
   function onPointerDown(e: React.MouseEvent | React.TouchEvent, block: AnyBlock, isMobile: boolean) {
     if (!editMode) return;
     e.preventDefault();
@@ -380,7 +379,6 @@ export default function CalendarView({
       const dx = Math.abs(clientX - state.startX);
       const dy = Math.abs(clientY - state.startY);
       if (dx < DRAG_THRESHOLD_PX && dy < DRAG_THRESHOLD_PX) return;
-      // Cancel long press once we start moving
       if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
       const next = { ...state, moved: true };
       dragRef.current = next;
@@ -461,12 +459,11 @@ export default function CalendarView({
             drop.startHour < b.endHour && drop.endHour > b.startHour
         );
         if (!target) return;
-
+        
         const mergedStart = Math.min(bt.startHour, target.startHour, drop.startHour);
         const mergedEnd = Math.max(bt.endHour, target.endHour, drop.endHour);
         const mergedLabel = bt.label === target.label ? bt.label : `${bt.label} + ${target.label}`;
         const mergedSourceIds = [...bt.sourceIds, ...target.sourceIds];
-
         const updates = mergedSourceIds.map((sid) =>
           supabase.from("blocked_times").update({ start_hour: mergedStart, end_hour: mergedEnd }).eq("id", sid)
         );
@@ -616,8 +613,6 @@ export default function CalendarView({
     showToast(`Separated into ${separated.length} blocks`);
   }
 
-  // ── Reschedule ────────────────────────────────────────────────────────────
-
   async function handleReschedule() {
     setRescheduling(true);
     try {
@@ -638,6 +633,8 @@ export default function CalendarView({
     } catch { showToast("Reschedule failed. Please try again."); }
     finally { setRescheduling(false); }
   }
+
+  // ── Block renderers ───────────────────────────────────────────────────────
 
   function renderTask(block: CalendarBlock, isMobile: boolean) {
     const colour = COLOUR_PALETTE[block.colourIndex % COLOUR_PALETTE.length];
