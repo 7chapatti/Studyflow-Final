@@ -158,13 +158,19 @@ export const TIER_LIMITS = {
 } as const;
 
 export const COLOUR_PALETTE = [
-  { bg: "rgba(99,102,241,0.2)", border: "#6366F1", text: "#818CF8" },
-  { bg: "rgba(52,211,153,0.2)", border: "#34D399", text: "#34D399" },
-  { bg: "rgba(251,191,36,0.2)", border: "#FBBF24", text: "#FBBF24" },
-  { bg: "rgba(248,113,113,0.2)", border: "#F87171", text: "#FCA5A5" },
-  { bg: "rgba(168,85,247,0.2)", border: "#A855F7", text: "#C084FC" },
-  { bg: "rgba(6,182,212,0.2)", border: "#06B6D4", text: "#22D3EE" },
+  { bg: "#386C9C", border: "#386C9C", text: "#F7F9F6" }, 
+  { bg: "#467A43", border: "#467A43", text: "#F7F9F6" }, 
+  { bg: "#6E5FA3", border: "#6E5FA3", text: "#F7F9F6" }, 
+  { bg: "#86661A", border: "#86661A", text: "#F7F9F6" }, 
+  { bg: "#2B7774", border: "#2B7774", text: "#F7F9F6" }, 
+  { bg: "#A4506F", border: "#A4506F", text: "#F7F9F6" }, 
 ] as const;
+
+export const DUE_SOON_COLOUR = {
+  bg: "#B5402F",
+  border: "#B5402F",
+  text: "#F7F9F6",
+} as const;
 
 export const DAYS_OF_WEEK = [
   "Mon",
