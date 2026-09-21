@@ -59,6 +59,8 @@ function CategoryLabel({ category }: { category: string }) {
   );
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
+
 export default function AssignmentPage() {
   const params = useParams();
   const router = useRouter();
@@ -157,6 +159,7 @@ export default function AssignmentPage() {
       prev.map((t) => (t.id === task.id ? { ...t, ...updates } : t))
     );
 
+    // Check if all tasks done — prompt to mark assignment complete
     const updatedTasks = tasks.map((t) =>
       t.id === task.id ? { ...t, ...updates } : t
     );
@@ -238,6 +241,7 @@ export default function AssignmentPage() {
     const deadline = new Date(assignment.deadline);
     setEditName(assignment.name);
     setEditDescription(assignment.description ?? "");
+
     const dateParts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(deadline);
     const timeParts = new Intl.DateTimeFormat("en-GB", {
       timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23",
@@ -339,8 +343,7 @@ export default function AssignmentPage() {
   const paceStatus = getPaceStatus(paceLog);
   const checklistDone = checklist.filter((c) => c.checked).length;
   const checklistTotal = checklist.length;
-
-  // Group checklist by category
+  
   const checklistByCategory = checklist.reduce<Record<string, ChecklistItem[]>>(
     (acc, item) => {
       if (!acc[item.category]) acc[item.category] = [];
@@ -428,7 +431,7 @@ export default function AssignmentPage() {
               <button
                 onClick={handleSaveEdit}
                 disabled={saving}
-                className="flex items-center gap-1.5 bg-indigo hover:bg-il text-white text-sm font-medium rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
               >
                 {saving && <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />}
                 Save
