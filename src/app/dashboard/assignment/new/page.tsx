@@ -43,8 +43,6 @@ export default function NewAssignmentPage() {
   const [aiError, setAiError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
-  const [createdAssignmentId, setCreatedAssignmentId] = useState<string | null>(null);
-  const [schedulingFailed, setSchedulingFailed] = useState(false);
   const [limitInfo, setLimitInfo] = useState<{ allowed: boolean; current: number; limit: number } | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
@@ -112,20 +110,6 @@ export default function NewAssignmentPage() {
     }
   }
 
-  async function runSchedule(assignmentId: string): Promise<boolean> {
-    try {
-      const res = await fetch("/api/schedule/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignmentId }),
-      });
-      const json = await res.json();
-      return res.ok && json.success;
-    } catch {
-      return false;
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setFormError("");
@@ -165,13 +149,12 @@ export default function NewAssignmentPage() {
       }
 
       const assignmentId = json.data.id as string;
-      setCreatedAssignmentId(assignmentId);
-      const scheduled = await runSchedule(assignmentId);
-      if (!scheduled) {
-        setSchedulingFailed(true);
-        setSubmitting(false);
-        return;
-      }
+
+      await fetch("/api/schedule/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignmentId }),
+      });
 
       router.push(`/dashboard/assignment/${assignmentId}`);
     } catch {
@@ -181,20 +164,10 @@ export default function NewAssignmentPage() {
     }
   }
 
-  async function handleRetrySchedule() {
-    if (!createdAssignmentId) return;
-    setSubmitting(true);
-    const scheduled = await runSchedule(createdAssignmentId);
-    setSubmitting(false);
-    if (scheduled) {
-      router.push(`/dashboard/assignment/${createdAssignmentId}`);
-    }
-  }
-
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <header className="mb-8">
-        <h1 className="font-sora text-2xl font-semibold text-text mb-1">New assignment</h1>
+        <h1 className="font-display text-2xl font-semibold text-text mb-1">New assignment</h1>
         <p className="text-muted text-sm">
           Describe your assignment and let StudyFlow build a plan around your schedule.
         </p>
@@ -351,7 +324,7 @@ export default function NewAssignmentPage() {
             )}
 
             <section aria-labelledby="sections-heading">
-              <h3 id="sections-heading" className="text-xs text-dim font-medium mb-2 uppercase tracking-wider">
+              <h3 id="sections-heading" className="text-xs text-dim font-medium mb-2">
                 Proposed sections
               </h3>
               <ul className="space-y-2">
@@ -377,7 +350,7 @@ export default function NewAssignmentPage() {
 
             {aiResult.checklist && aiResult.checklist.length > 0 && (
               <section aria-labelledby="checklist-heading">
-                <h3 id="checklist-heading" className="text-xs text-dim font-medium mb-2 uppercase tracking-wider">
+                <h3 id="checklist-heading" className="text-xs text-dim font-medium mb-2">
                   Requirements found ({aiResult.checklist.length})
                 </h3>
                 <ul className="space-y-1.5">
@@ -395,7 +368,7 @@ export default function NewAssignmentPage() {
 
         {/* Assignment details */}
         <section aria-labelledby="details-heading" className="space-y-4">
-          <h2 id="details-heading" className="text-xs font-medium text-il uppercase tracking-wider">
+          <h2 id="details-heading" className="text-xs font-medium text-il">
             Assignment details
           </h2>
 
@@ -480,36 +453,10 @@ export default function NewAssignmentPage() {
           </p>
         )}
 
-        {schedulingFailed && (
-          <div role="alert" className="bg-amber/10 border border-amber/25 rounded-lg px-4 py-3 space-y-2.5">
-            <p className="text-amber text-sm">
-              Your assignment was created, but placing it onto your calendar didn&apos;t go through. It
-              won&apos;t show up on your schedule until this succeeds.
-            </p>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleRetrySchedule}
-                disabled={submitting}
-                className="text-sm font-medium bg-amber hover:bg-amber/80 text-navy rounded-md px-3.5 py-1.5 transition-colors disabled:opacity-50"
-              >
-                {submitting ? "Retrying…" : "Retry scheduling"}
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push(`/dashboard/assignment/${createdAssignmentId}`)}
-                className="text-sm text-muted hover:text-text transition-colors"
-              >
-                View assignment anyway
-              </button>
-            </div>
-          </div>
-        )}
-
         <button
           type="submit"
-          disabled={submitting || schedulingFailed}
-          className="w-full bg-indigo hover:bg-il text-navy font-medium rounded-lg py-3 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={submitting}
+          className="w-full bg-indigo hover:bg-il text-ink font-medium rounded-lg py-3 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? "Creating plan…" : "Create plan"}
         </button>
