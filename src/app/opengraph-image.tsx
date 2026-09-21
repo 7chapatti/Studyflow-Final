@@ -14,8 +14,10 @@ export default function OpengraphImage() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#0F1B2D",
-          backgroundImage: "linear-gradient(135deg, #0F1B2D 0%, #1E2D42 100%)",
+          backgroundColor: "#182420",
+          backgroundImage:
+            "linear-gradient(#33413B 1px, transparent 1px), linear-gradient(90deg, #33413B 1px, transparent 1px)",
+          backgroundSize: "28px 28px",
         }}
       >
         <div
@@ -30,16 +32,16 @@ export default function OpengraphImage() {
             style={{
               width: 64,
               height: 64,
-              borderRadius: 16,
-              backgroundColor: "#6366F1",
+              borderRadius: 10,
+              backgroundColor: "#4F8FC4",
               display: "flex",
             }}
           />
-          <div style={{ fontSize: 64, fontWeight: 700, color: "#F0F4FF" }}>
+          <div style={{ fontSize: 64, fontWeight: 700, color: "#F3F1E9" }}>
             StudyFlow
           </div>
         </div>
-        <div style={{ fontSize: 30, color: "#C7D0E8", maxWidth: 800, textAlign: "center" }}>
+        <div style={{ fontSize: 30, color: "#D7DED3", maxWidth: 800, textAlign: "center" }}>
           AI-powered study planner that breaks your assignments into tasks
           and schedules them around your life.
         </div>
