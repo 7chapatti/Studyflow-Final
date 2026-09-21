@@ -279,7 +279,7 @@ export default function SettingsPage() {
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-8">
       <header className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-sora text-2xl font-semibold text-text mb-1">Settings</h1>
+          <h1 className="font-display text-2xl font-semibold text-text mb-1">Settings</h1>
           <p className="text-muted text-sm">Manage your account and preferences.</p>
         </div>
         <button
@@ -295,7 +295,7 @@ export default function SettingsPage() {
       </header>
 
       <section aria-labelledby="profile-label" className="bg-card border border-border rounded-xl p-5">
-        <h2 id="profile-label" className="flex items-center gap-2 font-sora text-base font-semibold text-text mb-4">
+        <h2 id="profile-label" className="flex items-center gap-2 font-display text-base font-semibold text-text mb-4">
           <span className="text-il"><UserIcon /></span>
           Profile
         </h2>
@@ -325,7 +325,7 @@ export default function SettingsPage() {
           <button
             type="submit"
             disabled={nameSaving}
-            className="bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-4 py-2 transition-colors disabled:opacity-50"
+            className="bg-indigo hover:bg-il text-ink text-sm font-medium rounded-lg px-4 py-2 transition-colors disabled:opacity-50"
           >
             {nameSaving ? "Saving…" : "Save name"}
           </button>
@@ -333,7 +333,7 @@ export default function SettingsPage() {
       </section>
 
       <section aria-labelledby="security-label" className="bg-card border border-border rounded-xl p-5">
-        <h2 id="security-label" className="flex items-center gap-2 font-sora text-base font-semibold text-text mb-4">
+        <h2 id="security-label" className="flex items-center gap-2 font-display text-base font-semibold text-text mb-4">
           <span className="text-il"><ShieldIcon /></span>
           Security
         </h2>
@@ -381,7 +381,7 @@ export default function SettingsPage() {
           <button
             type="submit"
             disabled={pwSaving}
-            className="bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-4 py-2 transition-colors disabled:opacity-50"
+            className="bg-indigo hover:bg-il text-ink text-sm font-medium rounded-lg px-4 py-2 transition-colors disabled:opacity-50"
           >
             {pwSaving ? "Updating…" : "Update password"}
           </button>
@@ -389,13 +389,13 @@ export default function SettingsPage() {
       </section>
 
       <section aria-labelledby="plan-label" className="bg-card border border-border rounded-xl p-5">
-        <h2 id="plan-label" className="flex items-center gap-2 font-sora text-base font-semibold text-text mb-4">
+        <h2 id="plan-label" className="flex items-center gap-2 font-display text-base font-semibold text-text mb-4">
           <span className="text-il"><ZapIcon /></span>
           Your plan
         </h2>
 
         <div className="flex items-center gap-3 mb-4">
-          <span className={`font-sora text-xl font-semibold ${tierInfo.colour}`}>
+          <span className={`font-display text-xl font-semibold ${tierInfo.colour}`}>
             {tierInfo.label}
           </span>
           {profile.tier === "free" && (
@@ -450,7 +450,7 @@ export default function SettingsPage() {
             </p>
             <Link
               href="/upgrade"
-              className="inline-block bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+              className="inline-block bg-indigo hover:bg-il text-ink text-sm font-medium rounded-lg px-4 py-2 transition-colors"
             >
               View plans →
             </Link>
@@ -481,7 +481,7 @@ export default function SettingsPage() {
       </section>
 
       <section aria-labelledby="danger-label" className="bg-card border border-red/20 rounded-xl p-5">
-        <h2 id="danger-label" className="font-sora text-base font-semibold text-red mb-2">
+        <h2 id="danger-label" className="font-display text-base font-semibold text-red mb-2">
           Danger zone
         </h2>
         <p className="text-muted text-sm mb-4">
