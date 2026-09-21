@@ -58,42 +58,44 @@ export default function SignupPage() {
 
   if (done) {
     return (
-      <section className="w-full max-w-sm bg-card border border-border border-t-2 border-t-green rounded-lg p-8 text-center">
-        <div className="w-14 h-14 bg-green/10 border border-green/25 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg
-            className="w-6 h-6 text-green"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
+      <div className="w-full max-w-sm">
+        <div className="bg-card border border-border rounded-2xl p-8 text-center">
+          <div className="w-14 h-14 bg-green/10 border border-green/25 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-6 h-6 text-green"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+          <h1 className="font-display text-xl font-semibold text-text mb-2">
+            Check your email
+          </h1>
+          <p className="text-muted text-sm leading-relaxed">
+            We sent a confirmation link to{" "}
+            <span className="text-text">{email}</span>. Click it to activate
+            your account and get started.
+          </p>
+          <p className="text-dim text-xs mt-4">
+            Didn&apos;t receive it? Check your spam folder.
+          </p>
         </div>
-        <h1 className="font-sora text-xl font-medium text-text mb-2">
-          Check your email
-        </h1>
-        <p className="text-muted text-sm leading-relaxed">
-          We sent a confirmation link to{" "}
-          <strong className="text-text font-medium">{email}</strong>. Click it to activate
-          your account and get started.
-        </p>
-        <p className="text-dim text-xs mt-4">
-          Didn&apos;t receive it? Check your spam folder.
-        </p>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="w-full max-w-sm">
-      <div className="bg-card border border-border border-t-2 border-t-indigo rounded-lg p-8">
-        <h1 className="font-sora text-2xl font-medium text-text mb-1">
+    <div className="w-full max-w-sm">
+      <div className="bg-card border border-border rounded-2xl p-8">
+        <h1 className="font-display text-2xl font-semibold text-text mb-1">
           Create your account
         </h1>
         <p className="text-muted text-sm mb-6">
@@ -182,7 +184,7 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo hover:bg-il text-navy font-medium rounded-lg py-2.5 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-indigo hover:bg-il text-ink font-medium rounded-lg py-2.5 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Creating account…" : "Create account"}
           </button>
@@ -210,6 +212,6 @@ export default function SignupPage() {
         </Link>
         .
       </p>
-    </section>
+    </div>
   );
 }
