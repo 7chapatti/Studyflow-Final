@@ -82,7 +82,7 @@ export default function TasksPage() {
         <h1 className="font-sora text-2xl font-semibold text-text">My tasks</h1>
         <Link
           href="/dashboard/assignment/new"
-          className="flex items-center gap-1.5 bg-indigo hover:bg-il text-white text-sm font-medium rounded-lg px-3 py-2 transition-colors"
+          className="flex items-center gap-1.5 bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-3 py-2 transition-colors"
         >
           <PlusIcon size={15} />
           New assignment
