@@ -53,6 +53,7 @@ export default function RootLayout({
     <html lang="en" className={`${sora.variable} ${inter.variable}`}>
       <body className="bg-navy text-text antialiased">
         {children}
+      <Analytics />
       </body>
     </html>
   );
