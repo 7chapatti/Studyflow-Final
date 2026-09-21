@@ -325,7 +325,7 @@ export default function SettingsPage() {
           <button
             type="submit"
             disabled={nameSaving}
-            className="bg-indigo hover:bg-il text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors disabled:opacity-50"
+            className="bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-4 py-2 transition-colors disabled:opacity-50"
           >
             {nameSaving ? "Saving…" : "Save name"}
           </button>
@@ -381,7 +381,7 @@ export default function SettingsPage() {
           <button
             type="submit"
             disabled={pwSaving}
-            className="bg-indigo hover:bg-il text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors disabled:opacity-50"
+            className="bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-4 py-2 transition-colors disabled:opacity-50"
           >
             {pwSaving ? "Updating…" : "Update password"}
           </button>
@@ -450,7 +450,7 @@ export default function SettingsPage() {
             </p>
             <Link
               href="/upgrade"
-              className="inline-block bg-indigo hover:bg-il text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors"
+              className="inline-block bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-4 py-2 transition-colors"
             >
               View plans →
             </Link>
