@@ -123,6 +123,9 @@ export default function NewAssignmentPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
+      // Timezone-only fetch for the local-to-UTC deadline conversion below.
+      // This is just for a nicer UX nudge — the active-assignment limit is
+      // actually enforced server-side by create_assignment_atomic().
       const { data: profile } = await supabase
         .from("profiles").select("timezone").eq("id", user.id).single();
       const userTimeZone = profile?.timezone ?? "Europe/London";
@@ -456,7 +459,7 @@ export default function NewAssignmentPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full bg-indigo hover:bg-il text-white font-medium rounded-lg py-3 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-indigo hover:bg-il text-navy font-medium rounded-lg py-3 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {submitting ? "Creating plan…" : "Create plan"}
         </button>
