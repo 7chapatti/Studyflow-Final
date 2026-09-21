@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 
-const sora = Space_Grotesk({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   weight: ["500", "600"],
-  variable: "--font-sora",
+  variable: "--font-space-grotesk",
   display: "swap",
 });
 
@@ -49,8 +49,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${sora.variable} ${inter.variable}`}>
-      <body className="bg-navy text-text antialiased">
+    <html lang="en" className={`${spaceGrotesk.variable} ${inter.variable}`}>
+      <body className="bg-navy font-sans text-text antialiased">
         {children}
       </body>
     </html>
