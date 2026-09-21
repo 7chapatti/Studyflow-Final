@@ -1,4 +1,3 @@
-// src/app/upgrade/upgrade-pricing.tsx
 "use client";
 
 import { useState } from "react";
@@ -107,9 +106,9 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
         <nav className="w-full px-6 h-14 flex items-center justify-between">
           <Link
             href={isAnonymous ? "/" : "/dashboard"}
-            className="font-sora text-lg font-semibold text-text hover:text-il transition-colors"
+            className="font-display text-lg font-semibold text-text hover:text-il transition-colors"
           >
-            Study<span className="text-il">Flow</span>
+            StudyFlow
           </Link>
           <button
             onClick={() => router.push(isAnonymous ? "/" : "/dashboard")}
@@ -135,7 +134,7 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
 
         {/* Header */}
         <div className="text-center mb-10">
-          <h1 className="font-sora text-3xl font-semibold text-text mb-3">
+          <h1 className="font-display text-3xl font-semibold text-text mb-3">
             Choose your plan
           </h1>
           <p className="text-muted text-sm mb-6">
@@ -147,7 +146,7 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
             <button
               onClick={() => setYearly(false)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                !yearly ? "bg-indigo text-navy" : "text-muted hover:text-text"
+                !yearly ? "bg-indigo text-ink" : "text-muted hover:text-text"
               }`}
             >
               Monthly
@@ -155,12 +154,12 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
             <button
               onClick={() => setYearly(true)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
-                yearly ? "bg-indigo text-navy" : "text-muted hover:text-text"
+                yearly ? "bg-indigo text-ink" : "text-muted hover:text-text"
               }`}
             >
               Yearly
               <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                yearly ? "bg-white/20 text-white" : "bg-green/15 text-green"
+                yearly ? "bg-ink/15 text-ink" : "bg-green/15 text-green"
               }`}>
                 Save 20%
               </span>
@@ -183,7 +182,7 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
                 }`}
               >
                 {plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo text-navy text-xs font-medium px-3 py-1 rounded-full whitespace-nowrap">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo text-ink text-xs font-medium px-3 py-1 rounded-full whitespace-nowrap">
                     {plan.badge}
                   </div>
                 )}
@@ -194,11 +193,11 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
                 )}
 
                 <div className="mb-4">
-                  <h2 className={`font-sora text-lg font-semibold mb-1 ${plan.headerColour}`}>
+                  <h2 className={`font-display text-lg font-semibold mb-1 ${plan.headerColour}`}>
                     {plan.name}
                   </h2>
                   <div className="flex items-baseline gap-1 mb-1">
-                    <span className="font-sora text-3xl font-bold text-text">
+                    <span className="font-display text-3xl font-semibold text-text">
                       {displayPrice}
                     </span>
                     {plan.key !== "free" && (
@@ -236,12 +235,12 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
                     disabled={upgrading !== null}
                     className={`w-full text-center text-sm font-medium rounded-lg py-2.5 transition-colors mt-4 flex items-center justify-center gap-2 disabled:opacity-50 ${
                       plan.key === "premium"
-                        ? "bg-indigo hover:bg-il text-navy"
+                        ? "bg-indigo hover:bg-il text-ink"
                         : "bg-navy3 border border-border hover:border-indigo/50 text-text"
                     }`}
                   >
                     {upgrading === plan.key && (
-                      <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                      <span className="w-3 h-3 border border-ink/30 border-t-ink rounded-full animate-spin" />
                     )}
                     {isAnonymous ? "Sign up" : `Upgrade to ${plan.name}`}
                   </button>
@@ -259,7 +258,7 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
         <section aria-labelledby="compare-label">
           <h2
             id="compare-label"
-            className="font-sora text-lg font-semibold text-text text-center mb-6"
+            className="font-display text-lg font-semibold text-text text-center mb-6"
           >
             Compare plans
           </h2>
@@ -269,7 +268,7 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
               <div className="p-4" />
               {["Free", "Premium", "Pro"].map((h) => (
                 <div key={h} className="p-4 text-center">
-                  <p className="font-sora text-sm font-semibold text-text">{h}</p>
+                  <p className="font-display text-sm font-semibold text-text">{h}</p>
                 </div>
               ))}
             </div>
