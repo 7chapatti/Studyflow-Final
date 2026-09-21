@@ -17,8 +17,8 @@ export default function DashboardError({
   return (
     <div className="flex items-center justify-center h-[calc(100vh-56px)] px-4">
       <div className="text-center max-w-sm">
-        <p className="font-sora text-5xl font-bold text-red mb-4">!</p>
-        <h1 className="font-sora text-xl font-semibold text-text mb-2">
+        <p className="font-display text-5xl font-semibold text-red mb-4">!</p>
+        <h1 className="font-display text-xl font-semibold text-text mb-2">
           Something went wrong
         </h1>
         <p className="text-muted text-sm mb-6 leading-relaxed">
@@ -28,7 +28,7 @@ export default function DashboardError({
         <div className="flex items-center justify-center gap-3">
           <button
             onClick={reset}
-            className="bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-4 py-2.5 transition-colors"
+            className="bg-indigo hover:bg-il text-ink text-sm font-medium rounded-lg px-4 py-2.5 transition-colors"
           >
             Try again
           </button>
