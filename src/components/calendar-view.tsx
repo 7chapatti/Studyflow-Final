@@ -13,7 +13,7 @@ import {
   parseISO,
 } from "date-fns";
 import type { Assignment, Task } from "@/types";
-import { COLOUR_PALETTE } from "@/types";
+import { COLOUR_PALETTE, DUE_SOON_COLOUR } from "@/types";
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, PencilIcon, RefreshIcon, TrashIcon, WandIcon, XIcon } from "@/components/icons";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -275,7 +275,7 @@ export default function CalendarView({
     loadData();
   }, [loadData]);
   useEffect(() => { setEditMode(false); }, [weekBase]);
-  
+
   const hasShownMissedNudge = useRef(false);
   useEffect(() => {
     if (hasShownMissedNudge.current) return;
@@ -296,6 +296,7 @@ export default function CalendarView({
     const ref = isMobile ? mobileGridRef.current : desktopGridRef.current;
     if (!ref) return null;
     const rect = ref.getBoundingClientRect();
+
     const scrollTop = ref.scrollTop ?? 0;
     const relY = clientY - rect.top + scrollTop;
     const relX = clientX - rect.left - GUTTER_WIDTH;
@@ -329,7 +330,7 @@ export default function CalendarView({
       return s < bE && e > bS;
     });
   }
-
+  
   function onPointerDown(e: React.MouseEvent | React.TouchEvent, block: AnyBlock, isMobile: boolean) {
     if (!editMode) return;
     e.preventDefault();
@@ -465,6 +466,7 @@ export default function CalendarView({
         const mergedEnd = Math.max(bt.endHour, target.endHour, drop.endHour);
         const mergedLabel = bt.label === target.label ? bt.label : `${bt.label} + ${target.label}`;
         const mergedSourceIds = [...bt.sourceIds, ...target.sourceIds];
+
         const updates = mergedSourceIds.map((sid) =>
           supabase.from("blocked_times").update({ start_hour: mergedStart, end_hour: mergedEnd }).eq("id", sid)
         );
@@ -590,7 +592,7 @@ export default function CalendarView({
       .in("id", bt.sourceIds);
 
     if (!rows || rows.length === 0) { await loadData(); return; }
-    
+
     const thisDay = DAYS[bt.dayIndex];
     const separated: CalendarBlockedTime[] = rows
       .filter((r) => (r.days as string[]).includes(thisDay))
@@ -613,6 +615,8 @@ export default function CalendarView({
 
     showToast(`Separated into ${separated.length} blocks`);
   }
+
+  // ── Reschedule ────────────────────────────────────────────────────────────
 
   async function handleReschedule() {
     setRescheduling(true);
@@ -643,15 +647,14 @@ export default function CalendarView({
     const height = Math.max((eH - sH) * ROW_HEIGHT, 20);
     const isDragging = dragging?.blockId === block.id && dragging.moved;
 
-    const bg = block.isPanic ? "rgba(248,113,113,0.2)" : colour.bg;
-    const border = block.isPanic ? "#F87171" : colour.border;
-    const textColour = block.isPanic ? "#FCA5A5" : colour.text;
+    const { bg, border, text: textColour } = block.isPanic ? DUE_SOON_COLOUR : colour;
 
     return (
       <button
         key={block.id}
-        className={`absolute left-0.5 right-0.5 rounded-md px-1.5 py-1 text-left overflow-hidden z-10 select-none transition-opacity ${editMode ? "cursor-grab ring-1 ring-white/10" : "cursor-pointer hover:brightness-110"} ${isDragging ? "opacity-20" : "opacity-100"}`}
+        className={`absolute left-0.5 right-0.5 rounded-md px-1.5 py-1 text-left overflow-hidden z-10 select-none transition-opacity ${editMode ? "cursor-grab ring-1 ring-text/20" : "cursor-pointer hover:brightness-110"} ${isDragging ? "opacity-20" : "opacity-100"}`}
         style={{ top, height, background: bg, borderLeft: `3px solid ${border}` }}
+        aria-label={block.isPanic ? `${block.taskName} (due soon)` : undefined}
         onMouseDown={editMode ? (e) => onPointerDown(e, block, isMobile) : undefined}
         onTouchStart={(e) => { if (editMode) onPointerDown(e, block, isMobile); startLongPress(e, block); }}
         onTouchEnd={cancelLongPress}
@@ -660,7 +663,7 @@ export default function CalendarView({
         onClick={!editMode ? () => router.push(`/dashboard/assignment/${block.assignmentId}`) : undefined}
       >
         <p className="text-xs font-medium truncate leading-tight" style={{ color: textColour }}>
-          {block.isPanic && "🔴 "}{block.taskName}{editMode && <span className="opacity-40"> ⠿</span>}
+          {block.isPanic && "! "}{block.taskName}{editMode && <span className="opacity-40"> ⠿</span>}
         </p>
         {height > 30 && (
           <p className="text-xs truncate opacity-70" style={{ color: textColour }}>
@@ -679,7 +682,7 @@ export default function CalendarView({
     return (
       <div
         key={bt.id}
-        className={`absolute left-0 right-0 border-l-2 select-none transition-opacity ${editMode ? "bg-border/30 border-indigo/40 cursor-grab" : "bg-border/20 border-border/50 pointer-events-none"} ${isDragging ? "opacity-20" : "opacity-100"}`}
+        className={`absolute left-0.5 right-0.5 rounded-md border select-none transition-opacity ${editMode ? "bg-blocked border-indigo/60 cursor-grab" : "bg-blocked border-blocked-edge pointer-events-none"} ${isDragging ? "opacity-20" : "opacity-100"}`}
         style={{ top, height }}
         onMouseDown={editMode ? (e) => onPointerDown(e as unknown as React.MouseEvent, bt, isMobile) : undefined}
         onTouchStart={(e) => { if (editMode) onPointerDown(e, bt, isMobile); startLongPress(e, bt); }}
@@ -687,7 +690,7 @@ export default function CalendarView({
         onTouchMove={cancelLongPress}
         onContextMenu={(e) => openCtx(e as unknown as React.MouseEvent, bt)}
       >
-        <span className="absolute top-1 left-2 text-xs text-dim font-medium truncate max-w-full pr-1">
+        <span className="absolute top-1 left-1.5 text-xs text-text font-medium truncate max-w-full pr-1">
           {bt.label}{editMode && <span className="opacity-40"> ⠿</span>}
         </span>
       </div>
@@ -765,8 +768,8 @@ export default function CalendarView({
               top: ghostPos.y - dragging.grabOffsetHours * ROW_HEIGHT,
               width: 130,
               height: Math.max(dragging.durationHours * ROW_HEIGHT, 20),
-              background: dropTarget.valid ? "rgba(74,222,128,0.3)" : "rgba(248,113,113,0.3)",
-              border: `2px solid ${dropTarget.valid ? "#4ade80" : "#f87171"}`,
+              background: dropTarget.valid ? "rgba(125,187,121,0.3)" : "rgba(232,128,111,0.3)",
+              border: `2px solid ${dropTarget.valid ? "#7DBB79" : "#E8806F"}`,
             }}
           >
             <p className="text-xs font-medium truncate text-text">{label}</p>
@@ -849,10 +852,10 @@ export default function CalendarView({
             <button onClick={() => setWeekBase(() => new Date())} className="px-3 h-8 text-xs font-medium text-muted border border-border rounded-lg hover:text-text hover:border-indigo/50 transition-all">Today</button>
             <button onClick={() => setWeekBase((d) => addWeeks(d, 1))} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted hover:text-text hover:border-indigo/50 transition-all" aria-label="Next week"><ChevronRightIcon /></button>
           </div>
-          <h1 className="font-sora text-sm font-semibold text-text hidden sm:block">
+          <h1 className="font-display text-sm font-semibold text-text hidden sm:block">
             {format(weekStart, "d MMM")} – {format(weekEnd, "d MMM yyyy")}
           </h1>
-          <h1 className="font-sora text-sm font-semibold text-text sm:hidden">
+          <h1 className="font-display text-sm font-semibold text-text sm:hidden">
             {format(weekDays[activeDayIndex], "EEE d MMM")}
           </h1>
         </div>
@@ -899,8 +902,8 @@ export default function CalendarView({
                   const isToday = isSameDay(day, today);
                   return (
                     <div key={i} className={`text-center py-2 border-r border-border last:border-r-0 ${isToday ? "bg-indigo/10" : ""}`}>
-                      <p className={`text-xs font-medium uppercase tracking-wider ${isToday ? "text-il" : "text-dim"}`}>{DAYS[i]}</p>
-                      <p className={`font-sora text-lg font-semibold leading-tight ${isToday ? "text-il" : "text-text"}`}>{format(day, "d")}</p>
+                      <p className={`text-xs font-medium ${isToday ? "text-il" : "text-dim"}`}>{DAYS[i]}</p>
+                      <p className={`font-display text-lg font-semibold leading-tight ${isToday ? "text-il" : "text-text"}`}>{format(day, "d")}</p>
                     </div>
                   );
                 })}
@@ -931,8 +934,8 @@ export default function CalendarView({
                 const hasBlocks = taskBlocks.some((b) => b.dayIndex === i);
                 return (
                   <button key={i} onClick={() => setActiveDayIndex(i)} className={`flex-1 min-w-[44px] py-2 text-center transition-all border-b-2 ${isActive ? "border-indigo bg-indigo/10" : "border-transparent hover:bg-indigo/5"}`}>
-                    <p className={`text-xs font-medium uppercase ${isToday ? "text-il" : isActive ? "text-il" : "text-dim"}`}>{DAYS[i].charAt(0)}</p>
-                    <p className={`font-sora text-base font-semibold ${isToday ? "text-il" : isActive ? "text-text" : "text-muted"}`}>{format(day, "d")}</p>
+                    <p className={`text-xs font-medium ${isToday ? "text-il" : isActive ? "text-il" : "text-dim"}`}>{DAYS[i].charAt(0)}</p>
+                    <p className={`font-display text-base font-semibold ${isToday ? "text-il" : isActive ? "text-text" : "text-muted"}`}>{format(day, "d")}</p>
                     {hasBlocks && <div className={`w-1 h-1 rounded-full mx-auto mt-0.5 ${isActive ? "bg-il" : "bg-dim"}`} />}
                   </button>
                 );
@@ -970,12 +973,12 @@ export default function CalendarView({
             );
           })}
           <span className="flex items-center gap-1.5 text-xs text-muted">
-            <span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-border/60 border border-border" />
+            <span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-blocked border border-blocked-edge" />
             Blocked
           </span>
           <span className="flex items-center gap-1.5 text-xs text-muted">
-            <span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-red/40 border border-red/50" />
-            Urgent
+            <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: DUE_SOON_COLOUR.bg }} />
+            Due soon
           </span>
         </div>
       )}
