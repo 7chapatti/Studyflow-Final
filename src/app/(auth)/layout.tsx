@@ -15,9 +15,9 @@ export default function AuthLayout({
       <header className="p-6">
         <Link
           href="/"
-          className="font-sora text-xl font-semibold text-text hover:text-il transition-colors"
+          className="font-display text-xl font-semibold text-text hover:text-il transition-colors"
         >
-          Study<span className="text-il">Flow</span>
+          StudyFlow
         </Link>
       </header>
       <main className="flex-1 flex items-center justify-center px-4 py-12">
