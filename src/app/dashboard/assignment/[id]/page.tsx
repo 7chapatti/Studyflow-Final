@@ -53,13 +53,11 @@ function CategoryLabel({ category }: { category: string }) {
     other: "Other",
   };
   return (
-    <span className="text-xs text-dim font-medium uppercase tracking-wider">
+    <span className="text-xs text-dim font-medium">
       {labels[category] ?? category}
     </span>
   );
 }
-
-// ── Main component ────────────────────────────────────────────────────────────
 
 export default function AssignmentPage() {
   const params = useParams();
@@ -159,7 +157,6 @@ export default function AssignmentPage() {
       prev.map((t) => (t.id === task.id ? { ...t, ...updates } : t))
     );
 
-    // Check if all tasks done — prompt to mark assignment complete
     const updatedTasks = tasks.map((t) =>
       t.id === task.id ? { ...t, ...updates } : t
     );
@@ -241,7 +238,6 @@ export default function AssignmentPage() {
     const deadline = new Date(assignment.deadline);
     setEditName(assignment.name);
     setEditDescription(assignment.description ?? "");
-
     const dateParts = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(deadline);
     const timeParts = new Intl.DateTimeFormat("en-GB", {
       timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23",
@@ -431,9 +427,9 @@ export default function AssignmentPage() {
               <button
                 onClick={handleSaveEdit}
                 disabled={saving}
-                className="flex items-center gap-1.5 bg-indigo hover:bg-il text-navy text-sm font-medium rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 bg-indigo hover:bg-il text-ink text-sm font-medium rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50"
               >
-                {saving && <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />}
+                {saving && <span className="w-3 h-3 border border-ink/30 border-t-ink rounded-full animate-spin" />}
                 Save
               </button>
               <button
@@ -451,7 +447,7 @@ export default function AssignmentPage() {
         ) : (
           <>
             <div className="flex items-start justify-between gap-4 mb-3">
-              <h1 className="font-sora text-xl font-semibold text-text leading-snug">
+              <h1 className="font-display text-xl font-semibold text-text leading-snug">
                 {assignment.name}
               </h1>
               <div className="flex items-center gap-2 shrink-0">
@@ -556,7 +552,7 @@ export default function AssignmentPage() {
 
       {/* Tasks */}
       <section aria-labelledby="tasks-label" className="mb-6">
-        <h2 id="tasks-label" className="font-sora text-base font-semibold text-text mb-3">
+        <h2 id="tasks-label" className="font-display text-base font-semibold text-text mb-3">
           Sections
         </h2>
         <ul className="space-y-2">
@@ -630,7 +626,7 @@ export default function AssignmentPage() {
       {checklist.length > 0 && (
         <section aria-labelledby="checklist-label" className="mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 id="checklist-label" className="font-sora text-base font-semibold text-text">
+            <h2 id="checklist-label" className="font-display text-base font-semibold text-text">
               Submission checklist
             </h2>
             <span className="text-xs text-muted">
