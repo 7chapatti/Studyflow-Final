@@ -1,3 +1,4 @@
+// src/app/upgrade/upgrade-pricing.tsx
 "use client";
 
 import { useState } from "react";
@@ -5,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckIcon, XIcon } from "@/components/icons";
 import type { Tier } from "@/types";
+
 export type ViewerTier = "anonymous" | Tier;
 
 const FEATURES = [
@@ -145,7 +147,7 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
             <button
               onClick={() => setYearly(false)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                !yearly ? "bg-indigo text-white" : "text-muted hover:text-text"
+                !yearly ? "bg-indigo text-navy" : "text-muted hover:text-text"
               }`}
             >
               Monthly
@@ -153,7 +155,7 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
             <button
               onClick={() => setYearly(true)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
-                yearly ? "bg-indigo text-white" : "text-muted hover:text-text"
+                yearly ? "bg-indigo text-navy" : "text-muted hover:text-text"
               }`}
             >
               Yearly
@@ -181,7 +183,7 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
                 }`}
               >
                 {plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo text-white text-xs font-medium px-3 py-1 rounded-full whitespace-nowrap">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo text-navy text-xs font-medium px-3 py-1 rounded-full whitespace-nowrap">
                     {plan.badge}
                   </div>
                 )}
@@ -234,7 +236,7 @@ export default function UpgradePricing({ currentTier }: { currentTier: ViewerTie
                     disabled={upgrading !== null}
                     className={`w-full text-center text-sm font-medium rounded-lg py-2.5 transition-colors mt-4 flex items-center justify-center gap-2 disabled:opacity-50 ${
                       plan.key === "premium"
-                        ? "bg-indigo hover:bg-il text-white"
+                        ? "bg-indigo hover:bg-il text-navy"
                         : "bg-navy3 border border-border hover:border-indigo/50 text-text"
                     }`}
                   >
