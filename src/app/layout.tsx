@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Sora, Inter } from "next/font/google";
+import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 
-const sora = Sora({
+const sora = Space_Grotesk({
   subsets: ["latin"],
+  weight: ["500", "600"],
   variable: "--font-sora",
   display: "swap",
 });
