@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
-import { Analytics } from '@vercel/analytics/next';
 
 const sora = Space_Grotesk({
   subsets: ["latin"],
@@ -53,7 +52,6 @@ export default function RootLayout({
     <html lang="en" className={`${sora.variable} ${inter.variable}`}>
       <body className="bg-navy text-text antialiased">
         {children}
-      <Analytics />
       </body>
     </html>
   );
