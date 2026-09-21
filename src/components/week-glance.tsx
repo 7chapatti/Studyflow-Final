@@ -1,13 +1,3 @@
-// Static sample week shown on the landing page.
-//
-// It reads its colours from the same COLOUR_PALETTE / DUE_SOON_COLOUR the
-// real calendar uses, so what a visitor sees here is what they get after
-// signing up. Purely presentational: a server component with no state.
-//
-// Markup is semantic on purpose: a <figure> holding an ordered list of days,
-// each day holding an ordered list of blocks. Text lives in <p> and <h3>
-// only; the coloured legend swatches are drawn with ::before so they need no
-// extra elements.
 import type { CSSProperties } from "react";
 import { COLOUR_PALETTE, DUE_SOON_COLOUR } from "@/types";
 
