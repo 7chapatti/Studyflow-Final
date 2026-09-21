@@ -48,7 +48,14 @@ function hasHighRiskContent(input: string): boolean {
 
 function looksAcademic(input: string): boolean {
   const text = input.toLowerCase();
-  return /assignment|essay|report|dissertation|lab report|presentation|coursework|module|referenc|bibliograph|word limit|deadline|question|task/i.test(text);
+  if (text.trim().length < 8) return false;
+
+  const academicWords =
+    /assignment|essay|report|dissertation|thesis|capstone|coursework|homework|exam|quiz|module|lecture|seminar|tutorial|syllabus|curriculum|presentation|referenc|bibliograph|citation|word limit|deadline|due\b|question|task|research|proposal|literature review|case study|problem set|pset|worksheet|revision|write[- ]?up|paper|draft|outline|submission|marking|grade|lab\b|practical|algorithm|data structure|dsa|compsci|comp[ -]?sci|computer science|programming|coding|software|database|calculus|algebra|statistics|\bstats\b|physics|chemistry|biology|economics|\becon\b|psycholog|philosoph|sociolog|anthropolog|linguistic|history|geography|engineering|nursing|medicine|\blaw\b|business|marketing|finance|accounting/i;
+
+  const moduleCode = /\b[a-z]{2,6}\d{2,4}\b/i;
+
+  return academicWords.test(text) || moduleCode.test(text);
 }
 
 const CONTENT_FENCE = "@@@STUDYFLOW_UNTRUSTED_CONTENT@@@";
