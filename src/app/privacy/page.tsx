@@ -1,27 +1,56 @@
 import Link from "next/link";
+import { LEGAL_LINKS } from "@/lib/legal";
 
 export const metadata = {
   title: "Privacy Policy",
 };
 
 export default function PrivacyPage() {
+  const { privacyPolicyUrl } = LEGAL_LINKS;
+
   return (
-    <div className="max-w-2xl mx-auto px-6 py-16">
-      <Link href="/" className="text-sm text-muted hover:text-text transition-colors">
-        ← Back
-      </Link>
-      <h1 className="font-display text-2xl font-semibold text-text mt-6 mb-4">
-        Privacy Policy
-      </h1>
-      <p className="text-muted text-sm leading-relaxed mb-4">
-        This is placeholder content. Replace this page with StudyFlow&apos;s
-        actual privacy policy before accepting real users — it should cover
-        what&apos;s collected (account details, uploaded briefs, usage data),
-        how Supabase, OpenAI, and Stripe process that data on StudyFlow&apos;s
-        behalf, and how someone can request deletion (see Settings → Delete
-        account).
-      </p>
-      <p className="text-dim text-xs">Last updated: placeholder.</p>
-    </div>
+    <>
+      <header className="mx-auto w-full max-w-2xl px-6 pt-16">
+        <Link href="/" className="text-sm text-muted transition-colors hover:text-text">
+          ← Back
+        </Link>
+      </header>
+
+      <main className="mx-auto w-full max-w-2xl px-6 pb-16">
+        <article>
+          <h1 className="font-display mt-6 mb-4 text-2xl font-semibold text-text">
+            Privacy Policy
+          </h1>
+
+          {privacyPolicyUrl ? (
+            <>
+              <p className="mb-4 text-sm leading-relaxed text-muted">
+                StudyFlow&apos;s Privacy &amp; Cookie Policy covers what account
+                and assignment data is collected, which services process it
+                on StudyFlow&apos;s behalf, and how to request deletion of
+                your data.
+              </p>
+              <p className="text-sm">
+                <Link
+                  href={privacyPolicyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-il underline transition-colors hover:text-text"
+                >
+                  View the full Privacy &amp; Cookie Policy ↗
+                </Link>
+              </p>
+            </>
+          ) : (
+            <p className="text-sm leading-relaxed text-muted">
+              StudyFlow&apos;s Privacy &amp; Cookie Policy is being finalised
+              and isn&apos;t published yet. Check back shortly, or contact
+              StudyFlow directly with any questions about how your data is
+              handled.
+            </p>
+          )}
+        </article>
+      </main>
+    </>
   );
 }
