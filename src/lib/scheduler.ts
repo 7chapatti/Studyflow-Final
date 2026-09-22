@@ -29,8 +29,6 @@ const LATE_NIGHT_START_HOUR = 0;
 const MAX_CONTINUOUS_HOURS = 2;
 const MIN_BLOCK_MINUTES = 30;
 const DEADLINE_BUFFER_HOURS = 2;
-const MIN_GAP_MINUTES = 15;
-const GLOBAL_RELAXED_HOURS_PER_DAY = 4;
 const PANIC_HOURS_THRESHOLD = 48;
 const PANIC_HARD_THRESHOLD = 24;
 const RELAXED_HOURS_PER_DAY = 1.5;
@@ -141,8 +139,7 @@ function overlapsExistingBlock(
   slotStart: Date,
   slotEnd: Date,
   existingBlocks: ScheduledBlock[],
-  scheduledSoFar: ScheduledBlockInsert[],
-  gapMinutes = 0
+  scheduledSoFar: ScheduledBlockInsert[]
 ): boolean {
   const allBlocks = [
     ...existingBlocks.map((b) => ({
@@ -155,11 +152,9 @@ function overlapsExistingBlock(
     })),
   ];
 
-  return allBlocks.some((b) => {
-    const paddedStart = addMinutes(b.start, -gapMinutes);
-    const paddedEnd = addMinutes(b.end, gapMinutes);
-    return isBefore(slotStart, paddedEnd) && isAfter(slotEnd, paddedStart);
-  });
+  return allBlocks.some(
+    (b) => isBefore(slotStart, b.end) && isAfter(slotEnd, b.start)
+  );
 }
 
 function getOpenSlotsByDay(params: {
@@ -171,7 +166,6 @@ function getOpenSlotsByDay(params: {
   existingBlocks: ScheduledBlock[];
   scheduledSoFar: ScheduledBlockInsert[];
   allowLateNight: boolean;
-  gapMinutes?: number;
 }): Map<string, TimeSlot[]> {
   const {
     from,
@@ -182,7 +176,6 @@ function getOpenSlotsByDay(params: {
     existingBlocks,
     scheduledSoFar,
     allowLateNight,
-    gapMinutes = 0,
   } = params;
 
   const byDay = new Map<string, TimeSlot[]>();
@@ -196,10 +189,10 @@ function getOpenSlotsByDay(params: {
 
   while (!isAfter(currentZonedDay, endZonedDay)) {
     const dayKey = format(currentZonedDay, "yyyy-MM-dd");
-    const roundedUpToHalfHour = Math.ceil(dateToHour(zonedFrom) * 2) / 2;
+
     const startHour =
       currentZonedDay.getTime() === startOfDay(zonedFrom).getTime()
-        ? Math.max(PREFERRED_START_HOUR, roundedUpToHalfHour)
+        ? Math.max(PREFERRED_START_HOUR, dateToHour(zonedFrom))
         : allowLateNight
           ? LATE_NIGHT_START_HOUR
           : PREFERRED_START_HOUR;
@@ -212,7 +205,7 @@ function getOpenSlotsByDay(params: {
         setHours(new Date(currentZonedDay), Math.floor(hour)),
         Math.round((hour % 1) * 60)
       );
-
+      
       const slotStart = fromZonedTime(zonedSlotStart, timezone);
       const slotEnd = addMinutes(slotStart, MIN_BLOCK_MINUTES);
 
@@ -224,7 +217,7 @@ function getOpenSlotsByDay(params: {
 
       if (
         !isInBlockedTime(currentZonedDay, hour, blockedTimes) &&
-        !overlapsExistingBlock(slotStart, slotEnd, existingBlocks, scheduledSoFar, gapMinutes)
+        !overlapsExistingBlock(slotStart, slotEnd, existingBlocks, scheduledSoFar)
       ) {
         daySlots.push({
           start: slotStart,
@@ -249,7 +242,6 @@ interface PlacedWindow {
   hours: number;
   dayKey: string;
 }
-
 function bestWindowInDay(
   daySlots: TimeSlot[],
   turnHours: number,
@@ -282,7 +274,6 @@ function bestWindowInDay(
       Math.max(0, (startHour - dayWindowStartHour) / daySpanHours)
     );
     const earlinessScore = 1 - normalizedOffset;
-        const earlinessScore = 1 - normalizedOffset;
     return peakPreferenceStrength * avgWeight + (1 - peakPreferenceStrength) * earlinessScore;
   }
 
@@ -336,15 +327,12 @@ function placeTurn(params: {
   turnHours: number;
   peakPreferenceStrength: number;
   allowLateNight: boolean;
-  respectGap: boolean;
   personalHourWeights?: Record<number, number>;
   blockedTimes: BlockedTime[];
   existingBlocks: ScheduledBlock[];
   scheduledSoFar: ScheduledBlockInsert[];
   assignmentDayTotals: Map<string, number>;
   dailyAssignmentTarget: number;
-  globalDayTotals: Map<string, number>;
-  globalDailyTarget: number;
 }): PlacedWindow | null {
   const {
     from,
@@ -353,72 +341,50 @@ function placeTurn(params: {
     turnHours,
     peakPreferenceStrength,
     allowLateNight,
-    respectGap,
     personalHourWeights,
     blockedTimes,
     existingBlocks,
     scheduledSoFar,
     assignmentDayTotals,
     dailyAssignmentTarget,
-    globalDayTotals,
-    globalDailyTarget,
   } = params;
 
+  const slotsByDay = getOpenSlotsByDay({
+    from,
+    until,
+    timezone,
+    personalHourWeights,
+    blockedTimes,
+    existingBlocks,
+    scheduledSoFar,
+    allowLateNight,
+  });
+
+  if (slotsByDay.size === 0) return null;
+
+  const orderedDayKeys = [...slotsByDay.keys()].sort();
   const dayWindowStartHour = allowLateNight ? LATE_NIGHT_START_HOUR : PREFERRED_START_HOUR;
   const dayWindowEndHour = allowLateNight ? LATE_NIGHT_END_HOUR : PREFERRED_END_HOUR;
 
-  const gapTiers = respectGap ? [MIN_GAP_MINUTES, 0] : [0];
-  
-  const slotsByGap = new Map<number, Map<string, TimeSlot[]>>();
-  function slotsFor(gapMinutes: number) {
-    let cached = slotsByGap.get(gapMinutes);
-    if (!cached) {
-      cached = getOpenSlotsByDay({
-        from,
-        until,
-        timezone,
-        personalHourWeights,
-        blockedTimes,
-        existingBlocks,
-        scheduledSoFar,
-        allowLateNight,
-        gapMinutes,
-      });
-      slotsByGap.set(gapMinutes, cached);
-    }
-    return cached;
-  }
+  for (const preferredOnly of [true, false]) {
+    for (const dayKey of orderedDayKeys) {
+      if (preferredOnly) {
+        const usedToday = assignmentDayTotals.get(dayKey) ?? 0;
+        if (usedToday >= dailyAssignmentTarget) continue;
+      }
 
-  for (const gapMinutes of gapTiers) {
-    const slotsByDay = slotsFor(gapMinutes);
-    if (slotsByDay.size === 0) continue;
+      const daySlots = slotsByDay.get(dayKey);
+      if (!daySlots || daySlots.length === 0) continue;
 
-    const orderedDayKeys = [...slotsByDay.keys()].sort();
-
-    for (const dayPreference of ["both", "assignmentOnly", "none"] as const) {
-      for (const dayKey of orderedDayKeys) {
-        if (dayPreference !== "none") {
-          const usedByAssignment = assignmentDayTotals.get(dayKey) ?? 0;
-          if (usedByAssignment >= dailyAssignmentTarget) continue;
-        }
-        if (dayPreference === "both") {
-          const usedGlobally = globalDayTotals.get(dayKey) ?? 0;
-          if (usedGlobally >= globalDailyTarget) continue;
-        }
-
-        const daySlots = slotsByDay.get(dayKey);
-        if (!daySlots || daySlots.length === 0) continue;
-
-        const window = bestWindowInDay(
-          daySlots,
-          turnHours,
-          peakPreferenceStrength,
-          dayWindowStartHour,
-          dayWindowEndHour
-        );
-        if (window) {
-          return { ...window, dayKey: format(toZonedTime(window.start, timezone), "yyyy-MM-dd") };
-        }
+      const window = bestWindowInDay(
+        daySlots,
+        turnHours,
+        peakPreferenceStrength,
+        dayWindowStartHour,
+        dayWindowEndHour
+      );
+      if (window) {
+        return { ...window, dayKey: format(toZonedTime(window.start, timezone), "yyyy-MM-dd") };
       }
     }
   }
@@ -461,7 +427,6 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
   const now = input.now ?? new Date();
   const scheduledSoFar: ScheduledBlockInsert[] = [];
   const assignmentDayTotals = new Map<string, Map<string, number>>();
-  const globalDayTotals = new Map<string, number>();
   const atRisk: ScheduleOutput["atRisk"] = [];
   const panicTaskIds = new Set<string>();
 
@@ -533,8 +498,7 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
 
       const hoursUntilDeadline = differenceInHours(deadline, now);
       const totalAvailableHours = Math.max(0, hoursUntilDeadline);
-      const isPanic = isPanicTask(task, assignment, now, totalAvailableHours);
-      if (isPanic) {
+      if (isPanicTask(task, assignment, now, totalAvailableHours)) {
         panicTaskIds.add(task.id);
       }
 
@@ -544,7 +508,6 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
 
       const urgency = computeUrgency(assignmentRemainingHours, hoursUntilDeadline);
       const dailyAssignmentTarget = Math.max(RELAXED_HOURS_PER_DAY, urgency.neededHoursPerDay);
-      const globalDailyTarget = Math.max(GLOBAL_RELAXED_HOURS_PER_DAY, dailyAssignmentTarget);
 
       if (!assignmentDayTotals.has(assignment.id)) {
         assignmentDayTotals.set(assignment.id, new Map());
@@ -560,15 +523,12 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
         turnHours,
         peakPreferenceStrength: urgency.peakPreferenceStrength,
         allowLateNight: urgency.allowLateNight,
-        respectGap: !isPanic,
         personalHourWeights: input.personalHourWeights,
         blockedTimes: input.blockedTimes,
         existingBlocks: input.existingBlocks,
         scheduledSoFar,
         assignmentDayTotals: dayTotals,
         dailyAssignmentTarget,
-        globalDayTotals,
-        globalDailyTarget,
       });
 
       if (!placed) {
@@ -585,7 +545,6 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
       scheduledSoFar.push(block);
 
       dayTotals.set(placed.dayKey, (dayTotals.get(placed.dayKey) ?? 0) + placed.hours);
-      globalDayTotals.set(placed.dayKey, (globalDayTotals.get(placed.dayKey) ?? 0) + placed.hours);
       remainingHours.set(task.id, remaining - placed.hours);
       progressMadeThisPass = true;
     }
