@@ -438,7 +438,6 @@ function bestWindowInDay(
       Math.max(0, (startHour - dayWindowStartHour) / daySpanHours)
     );
     const earlinessScore = 1 - normalizedOffset;
-    const earlinessScore = 1 - normalizedOffset;
     return peakPreferenceStrength * avgWeight + (1 - peakPreferenceStrength) * earlinessScore;
   }
 
