@@ -97,7 +97,7 @@ describe("scheduleTasks — slot grid stays half-hour aligned even when 'now' is
     for (const b of blocks) {
       const start = new Date(b.start_time);
       const end = new Date(b.end_time);
-      if (start.getUTCDay() !== 1) continue; // Monday only
+      if (start.getUTCDay() !== 1) continue;
       const startHour = start.getUTCHours() + start.getUTCMinutes() / 60;
       const endHour = end.getUTCHours() + end.getUTCMinutes() / 60;
       const overlapsBlockedTime = startHour < 22 && endHour > 17.5;
@@ -168,7 +168,6 @@ describe("scheduleTasks — breaks between turns for relaxed work, none required
       const prevEnd = new Date(sorted[i - 1].end_time).getTime();
       const nextStart = new Date(sorted[i].start_time).getTime();
       const gapMinutes = (nextStart - prevEnd) / 60_000;
-
       if (gapMinutes >= 0 && gapMinutes < 12 * 60) {
         expect(gapMinutes).toBeGreaterThanOrEqual(15);
       }
@@ -194,5 +193,63 @@ describe("scheduleTasks — breaks between turns for relaxed work, none required
       (b, i) => i > 0 && new Date(sorted[i - 1].end_time).getTime() === new Date(b.start_time).getTime()
     );
     expect(hasBackToBack).toBe(true);
+  });
+});
+
+describe("scheduleTasks — an assignment's own separate small tasks spread across days", () => {
+  it("doesn't stack several short tasks from one assignment onto the same day when the deadline is days away", () => {
+    const deadline = new Date(NOW.getTime() + 4 * 24 * 3_600_000).toISOString();
+    const assignment = makeAssignment({ name: "cyber", deadline });
+    const tasks = ["Introduction to Firewalls", "Types of Firewalls", "Firewall Configuration"].map(
+      (name) => makeTask(assignment, { name, estimated_hours: 1 })
+    );
+    const blockedTimes: BlockedTime[] = [
+      {
+        id: "work", user_id: "u1", label: "work",
+        days: ["Mon", "Tue", "Wed", "Thu", "Fri"], start_hour: 9, end_hour: 17,
+        repeat_weekly: true, created_at: NOW.toISOString(),
+      } as BlockedTime,
+    ];
+
+    const { blocks } = scheduleTasks("u1", baseInput({ tasks, blockedTimes }));
+    const days = new Set(blocks.map((b) => dayKeyUTC(b.start_time)));
+
+    expect(days.size).toBe(3);
+  });
+
+  it("still allows more than one session per day when a single task's own pace genuinely requires it", () => {
+    const deadline = new Date(NOW.getTime() + 6 * 3_600_000).toISOString();
+    const assignment = makeAssignment({ name: "cyber", deadline, priority: "urgent" });
+    const task = makeTask(assignment, { name: "T1", estimated_hours: 3 });
+
+    const { blocks, atRisk } = scheduleTasks("u1", baseInput({ tasks: [task] }));
+    expect(atRisk).toHaveLength(0);
+    const totalHours = blocks.reduce(
+      (sum, b) => sum + (new Date(b.end_time).getTime() - new Date(b.start_time).getTime()) / 3_600_000,
+      0
+    );
+    expect(totalHours).toBeCloseTo(3, 1);
+    const days = new Set(blocks.map((b) => dayKeyUTC(b.start_time)));
+    expect(days.size).toBe(1);
+  });
+});
+
+describe("scheduleTasks — equal-scoring windows prefer the one with more slack", () => {
+  it("doesn't squeeze into a one-hour gap before a blocked time when a wide-open window scores the same", () => {
+    const deadline = new Date(NOW.getTime() + 4 * 24 * 3_600_000).toISOString();
+    const assignment = makeAssignment({ deadline });
+    const task = makeTask(assignment, { estimated_hours: 1 });
+    const blockedTimes: BlockedTime[] = [
+      {
+        id: "work", user_id: "u1", label: "work",
+        days: ["Mon", "Tue", "Wed", "Thu", "Fri"], start_hour: 9, end_hour: 17,
+        repeat_weekly: true, created_at: NOW.toISOString(),
+      } as BlockedTime,
+    ];
+
+    const { blocks } = scheduleTasks("u1", baseInput({ tasks: [task], blockedTimes }));
+    expect(blocks).toHaveLength(1);
+    const start = new Date(blocks[0].start_time);
+    expect(start.getUTCHours()).toBeGreaterThanOrEqual(17);
   });
 });
