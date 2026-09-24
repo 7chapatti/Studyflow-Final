@@ -180,6 +180,7 @@ function buildMergedBlockedTimes(btRaw: RawBlockedTimeRow[]): CalendarBlockedTim
   }
   return mergedBT;
 }
+
 interface CalendarViewProps {
   initialWeekBase?: string;
   initialBlocksRaw?: RawScheduledBlockRow[];
@@ -315,7 +316,6 @@ export default function CalendarView({
 
     return { dayIndex, hour };
   }
-
   function isInBlockedTime(dayIndex: number, s: number, e: number) {
     return blockedTimes.some((bt) => bt.dayIndex === dayIndex && s < bt.endHour && e > bt.startHour);
   }
@@ -400,11 +400,14 @@ export default function CalendarView({
     let willMerge = false;
 
     if (state.blockType === "task") {
+      // Tasks cannot overlap blocked times or other tasks
       if (isInBlockedTime(pos.dayIndex, snappedStart, snappedEnd)) { valid = false; reason = "Blocked time"; }
       else if (isOccupied(pos.dayIndex, snappedStart, snappedEnd, state.blockId)) { valid = false; reason = "Already taken"; }
     } else {
+      // Blocked times cannot overlap task blocks
       if (isOccupied(pos.dayIndex, snappedStart, snappedEnd, "")) { valid = false; reason = "Task block here"; }
       else {
+        // Check if dropping onto another blocked time — will merge visually
         const overlapping = blockedTimes.find(
           (bt) => bt.id !== state.blockId && bt.dayIndex === pos.dayIndex &&
             snappedStart < bt.endHour && snappedEnd > bt.startHour
@@ -459,11 +462,12 @@ export default function CalendarView({
             drop.startHour < b.endHour && drop.endHour > b.startHour
         );
         if (!target) return;
-        
+
         const mergedStart = Math.min(bt.startHour, target.startHour, drop.startHour);
         const mergedEnd = Math.max(bt.endHour, target.endHour, drop.endHour);
         const mergedLabel = bt.label === target.label ? bt.label : `${bt.label} + ${target.label}`;
         const mergedSourceIds = [...bt.sourceIds, ...target.sourceIds];
+
         const updates = mergedSourceIds.map((sid) =>
           supabase.from("blocked_times").update({ start_hour: mergedStart, end_hour: mergedEnd }).eq("id", sid)
         );
@@ -485,6 +489,7 @@ export default function CalendarView({
         showToast(`✓ Merged into one block (${mergedLabel})`);
 
       } else {
+        // Simple move — update position
         setBlockedTimes((prev) => prev.map((b) =>
           b.id === state.blockId
             ? { ...b, startHour: drop.startHour, endHour: drop.endHour, dayIndex: drop.dayIndex }
@@ -590,6 +595,7 @@ export default function CalendarView({
 
     if (!rows || rows.length === 0) { await loadData(); return; }
 
+    // Build individual display blocks for this day
     const thisDay = DAYS[bt.dayIndex];
     const separated: CalendarBlockedTime[] = rows
       .filter((r) => (r.days as string[]).includes(thisDay))
@@ -633,8 +639,6 @@ export default function CalendarView({
     } catch { showToast("Reschedule failed. Please try again."); }
     finally { setRescheduling(false); }
   }
-
-  // ── Block renderers ───────────────────────────────────────────────────────
 
   function renderTask(block: CalendarBlock, isMobile: boolean) {
     const colour = COLOUR_PALETTE[block.colourIndex % COLOUR_PALETTE.length];
@@ -725,7 +729,7 @@ export default function CalendarView({
 
   function DayColumn({ dayIndex, isMobile }: { dayIndex: number; isMobile: boolean }) {
     return (
-      <div className="relative border-r border-border/30 last:border-r-0 h-full">
+      <div className="relative border-r border-border last:border-r-0 h-full">
         {blockedTimes.filter((bt) => bt.dayIndex === dayIndex).map((bt) => renderBlocked(bt, isMobile))}
         {taskBlocks.filter((b) => b.dayIndex === dayIndex).map((b) => renderTask(b, isMobile))}
         {renderDropPreview(dayIndex)}
@@ -737,7 +741,7 @@ export default function CalendarView({
     return (
       <>
         {HOURS.map((hour) => (
-          <div key={hour} className="absolute left-0 right-0 border-t border-border/30" style={{ top: `${hour * ROW_HEIGHT}px` }}>
+          <div key={hour} className="absolute left-0 right-0 border-t border-border" style={{ top: `${hour * ROW_HEIGHT}px` }}>
             {hour > 0 && (
               <span className="absolute left-0 w-14 text-right pr-2 text-xs text-dim select-none" style={{ top: -10 }}>
                 {pad(hour)}:00
@@ -893,7 +897,7 @@ export default function CalendarView({
           <div className="hidden sm:flex flex-col flex-1 overflow-auto">
             <div className="min-w-[640px]">
               {/* Sticky day headers */}
-              <div className="grid sticky top-0 z-10 bg-navy border-b border-border" style={{ gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)` }}>
+              <div className="grid sticky top-0 z-30 bg-navy border-b border-border" style={{ gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)` }}>
                 <div className="border-r border-border" />
                 {weekDays.map((day, i) => {
                   const isToday = isSameDay(day, today);
