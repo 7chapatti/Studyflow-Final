@@ -26,10 +26,8 @@ const PREFERRED_START_HOUR = 8;
 const PREFERRED_END_HOUR = 22;
 const LATE_NIGHT_END_HOUR = 24;
 const LATE_NIGHT_START_HOUR = 0;
-const MAX_CONTINUOUS_HOURS = 2;
 const MIN_BLOCK_MINUTES = 30;
 const DEADLINE_BUFFER_HOURS = 2;
-const MIN_GAP_MINUTES = 15;
 const GLOBAL_RELAXED_HOURS_PER_DAY = 4;
 const PANIC_HOURS_THRESHOLD = 48;
 const PANIC_HARD_THRESHOLD = 24;
@@ -46,6 +44,7 @@ function getFatigueWeight(hour: number, personalWeights?: Record<number, number>
   const table = personalWeights ?? FATIGUE_WEIGHTS;
   return table[Math.floor(hour)] ?? 0.5;
 }
+
 export function priorityScore(
   task: Task,
   assignment: Assignment,
@@ -62,7 +61,6 @@ export function priorityScore(
   const overdueBonus = daysLeft < 0 ? 100 : 0;
   return (base[assignment.priority] ?? 20) + urgencyBonus + overdueBonus;
 }
-
 export function isPanicTask(
   task: Task,
   assignment: Assignment,
@@ -118,7 +116,6 @@ function isInBlockedTime(
     return hour >= bt.start_hour && hour < bt.end_hour;
   });
 }
-
 export function blockOverlapsBlockedTimes(
   block: { start_time: string; end_time: string },
   blockedTimes: BlockedTime[],
@@ -186,7 +183,7 @@ function getOpenSlotsByDay(params: {
 
   const byDay = new Map<string, TimeSlot[]>();
   const endHour = allowLateNight ? LATE_NIGHT_END_HOUR : PREFERRED_END_HOUR;
-  
+
   const zonedFrom = toZonedTime(from, timezone);
   const zonedUntil = toZonedTime(until, timezone);
 
@@ -248,6 +245,7 @@ interface PlacedWindow {
   hours: number;
   dayKey: string;
 }
+
 function bestWindowInDay(
   daySlots: TimeSlot[],
   turnHours: number,
@@ -282,7 +280,7 @@ function bestWindowInDay(
     const earlinessScore = 1 - normalizedOffset;
     return peakPreferenceStrength * avgWeight + (1 - peakPreferenceStrength) * earlinessScore;
   }
-  
+
   const TIE_EPSILON = 1e-9;
   let best: { window: TimeSlot[]; score: number; slack: number } | null = null;
   for (const run of runs) {
@@ -310,7 +308,6 @@ function bestWindowInDay(
       dayKey: format(window[0].start, "yyyy-MM-dd"),
     };
   }
-
   let bestPartial: { window: TimeSlot[]; score: number } | null = null;
   for (const run of runs) {
     const score = scoreWindow(run);
@@ -330,7 +327,7 @@ function bestWindowInDay(
     start: window[0].start,
     end: window[window.length - 1].end,
     hours: window.length * 0.5,
-    dayKey: format(window[0].start, "yyyy-MM-dd"), 
+    dayKey: format(window[0].start, "yyyy-MM-dd"),
   };
 }
 
@@ -519,6 +516,17 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
     remainingHours.set(task.id, Math.max(0, hoursToSchedule - alreadyScheduled));
   }
 
+  const assignmentStableUrgency = new Map<string, ReturnType<typeof computeUrgency>>();
+  for (const task of sortedTasks) {
+    if (assignmentStableUrgency.has(task.assignment.id)) continue;
+    const assignment = task.assignment;
+    const totalHours = sortedTasks
+      .filter((t) => t.assignment.id === assignment.id)
+      .reduce((sum, t) => sum + (originalHoursToSchedule.get(t.id) ?? 0), 0);
+    const hoursUntilDeadline = Math.max(1, differenceInHours(parseISO(assignment.deadline), now));
+    assignmentStableUrgency.set(assignment.id, computeUrgency(totalHours, hoursUntilDeadline));
+  }
+
   const finalizeAtRisk = (task: Task & { assignment: Assignment }) => {
     if (finished.has(task.id)) return;
     finished.add(task.id);
@@ -567,11 +575,7 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
         panicTaskIds.add(task.id);
       }
 
-      const assignmentRemainingHours = sortedTasks
-        .filter((t) => t.assignment.id === assignment.id && !finished.has(t.id))
-        .reduce((sum, t) => sum + (remainingHours.get(t.id) ?? 0), 0);
-
-      const urgency = computeUrgency(assignmentRemainingHours, hoursUntilDeadline);
+      const urgency = assignmentStableUrgency.get(assignment.id)!;
       const dailyAssignmentTarget = Math.max(RELAXED_HOURS_PER_DAY, urgency.neededHoursPerDay);
       const globalDailyTarget = Math.max(GLOBAL_RELAXED_HOURS_PER_DAY, dailyAssignmentTarget);
 
@@ -625,6 +629,7 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
       progressMadeThisPass = true;
     }
   }
+
   for (const task of sortedTasks) {
     if (!finished.has(task.id)) finalizeAtRisk(task);
   }
@@ -641,8 +646,6 @@ export function detectMissedBlocks(
     return !b.is_missed && isBefore(new Date(b.end_time), now) && taskStatus === "todo";
   });
 }
-
-// ── Warning message builders ──────────────────────────────────────────────────
 
 export function buildAtRiskMessage(
   taskName: string,
