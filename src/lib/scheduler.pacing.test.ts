@@ -152,7 +152,7 @@ describe("scheduleTasks — global daily budget spreads unrelated assignments ac
 
 describe("scheduleTasks — breaks between turns for relaxed work, none required for panic work", () => {
   it("leaves a gap between two different tasks' turns on the same day when neither is urgent", () => {
-    const deadline = "2026-08-30T00:00:00.000Z";
+    const deadline = "2026-08-30T00:00:00.000Z"; // very relaxed
     const assignment = makeAssignment({ deadline });
     const tasks = [
       makeTask(assignment, { name: "T1", estimated_hours: 2 }),
@@ -168,6 +168,7 @@ describe("scheduleTasks — breaks between turns for relaxed work, none required
       const prevEnd = new Date(sorted[i - 1].end_time).getTime();
       const nextStart = new Date(sorted[i].start_time).getTime();
       const gapMinutes = (nextStart - prevEnd) / 60_000;
+      
       if (gapMinutes >= 0 && gapMinutes < 12 * 60) {
         expect(gapMinutes).toBeGreaterThanOrEqual(15);
       }
@@ -251,5 +252,46 @@ describe("scheduleTasks — equal-scoring windows prefer the one with more slack
     expect(blocks).toHaveLength(1);
     const start = new Date(blocks[0].start_time);
     expect(start.getUTCHours()).toBeGreaterThanOrEqual(17);
+  });
+});
+
+describe("scheduleTasks — two competing assignments don't dump onto the same day", () => {
+  it("keeps each assignment to roughly one session per day even when a second assignment is also active", () => {
+    const antimatter = makeAssignment({
+      name: "antimatter",
+      deadline: new Date(NOW.getTime() + 6.5 * 24 * 3_600_000).toISOString(),
+    });
+    const light = makeAssignment({
+      name: "light",
+      deadline: new Date(NOW.getTime() + 4.5 * 24 * 3_600_000).toISOString(),
+    });
+    const tasks = [
+      ...["Introduction to Antimatter", "History", "Applications", "Theory", "Conclusion"].map((name) =>
+        makeTask(antimatter, { name, estimated_hours: 1 })
+      ),
+      ...["Historical Context", "Introduction", "Comparison", "Evidence", "Conclusion"].map((name) =>
+        makeTask(light, { name, estimated_hours: 1 })
+      ),
+    ];
+    const blockedTimes: BlockedTime[] = [
+      {
+        id: "work", user_id: "u1", label: "work",
+        days: ["Mon", "Tue", "Wed", "Thu", "Fri"], start_hour: 9, end_hour: 17,
+        repeat_weekly: true, created_at: NOW.toISOString(),
+      } as BlockedTime,
+    ];
+
+    const { blocks, atRisk } = scheduleTasks("u1", baseInput({ tasks, blockedTimes }));
+    expect(atRisk).toHaveLength(0);
+
+    const sessionsPerDay = new Map<string, number>();
+    for (const b of blocks) {
+      const day = dayKeyUTC(b.start_time);
+      sessionsPerDay.set(day, (sessionsPerDay.get(day) ?? 0) + 1);
+    }
+
+    for (const count of sessionsPerDay.values()) {
+      expect(count).toBeLessThanOrEqual(2);
+    }
   });
 });
