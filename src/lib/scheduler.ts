@@ -75,7 +75,7 @@ const PANIC_HARD_THRESHOLD = 24;
 // What replaces the old fixed bands (1.5h/day relaxed -> 8h/day "crunch")
 // is a *soft* per-assignment daily target computed from genuine need:
 //
-//   targetHoursPerDay = max(RELAXED_HOURS_PER_DAY, hoursNeeded / daysLeft)
+//  targetHoursPerDay = max(RELAXED_HOURS_PER_DAY, hoursNeeded / daysLeft)
 //
 // -- i.e. "1.5h/day, or however much is actually required to finish in
 // time, whichever is bigger". scheduleTasks() tries to keep each
@@ -579,6 +579,7 @@ function placeTurn(params: {
   dailyAssignmentTarget: number;
   globalDayTotals: Map<string, number>;
   globalDailyTarget: number;
+  idealNextDate: Date;
 }): PlacedWindow | null {
   const {
     from,
@@ -597,12 +598,15 @@ function placeTurn(params: {
     dailyAssignmentTarget,
     globalDayTotals,
     globalDailyTarget,
+    idealNextDate,
   } = params;
 
   const dayWindowStartHour = allowLateNight ? LATE_NIGHT_START_HOUR : PREFERRED_START_HOUR;
   const dayWindowEndHour = allowLateNight ? LATE_NIGHT_END_HOUR : PREFERRED_END_HOUR;
 
   const gapTiers = respectGap ? [MIN_GAP_MINUTES, 0] : [0];
+
+  const idealDayKey = format(toZonedTime(idealNextDate, timezone), "yyyy-MM-dd");
 
   // Cache slot generation per distinct gapMinutes value used across tiers
   // (there are at most two: MIN_GAP_MINUTES and 0) rather than per tier,
@@ -639,6 +643,9 @@ function placeTurn(params: {
     for (const dayPreference of ["both", "assignmentOnly", "none"] as const) {
       for (const dayKey of orderedDayKeys) {
         if (dayPreference !== "none") {
+          // Strict spacing check: skip days before our ideal next date
+          if (dayKey < idealDayKey) continue;
+
           const assignmentPreferred = isDayPreferredForAssignment(
             dayKey,
             assignmentDayTotals,
@@ -747,6 +754,9 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
   const globalDayTotals = new Map<string, number>();
   const atRisk: ScheduleOutput["atRisk"] = [];
   const panicTaskIds = new Set<string>();
+
+  // Track the ideal next start date per assignment to pace out tasks evenly
+  const assignmentNextIdealDate = new Map<string, Date>();
 
   const sortedTasks = input.tasks
     .filter((t) => t.status !== "done")
@@ -892,6 +902,9 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
 
       const turnHours = Math.min(MAX_CONTINUOUS_HOURS, remaining);
 
+      // Fetch the current ideal spacing date for this assignment
+      const idealNextDate = assignmentNextIdealDate.get(assignment.id) ?? now;
+
       const placed = placeTurn({
         from: now,
         until,
@@ -909,6 +922,7 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
         dailyAssignmentTarget,
         globalDayTotals,
         globalDailyTarget,
+        idealNextDate,
       });
 
       if (!placed) {
@@ -932,6 +946,17 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
       globalDayTotals.set(placed.dayKey, (globalDayTotals.get(placed.dayKey) ?? 0) + placed.hours);
       remainingHours.set(task.id, remaining - placed.hours);
       progressMadeThisPass = true;
+
+      // Calculate the next ideal date based on the true pace needed
+      const effectiveNeededPerDay = Math.max(0.1, urgency.neededHoursPerDay);
+      const daysCovered = placed.hours / effectiveNeededPerDay;
+      const nextIdeal = addMinutes(placed.start, daysCovered * 24 * 60);
+
+      const currentIdeal = assignmentNextIdealDate.get(assignment.id) ?? now;
+      assignmentNextIdealDate.set(
+        assignment.id,
+        isAfter(nextIdeal, currentIdeal) ? nextIdeal : currentIdeal
+      );
     }
   }
 
