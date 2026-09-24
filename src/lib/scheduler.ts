@@ -193,20 +193,11 @@ function getOpenSlotsByDay(params: {
   gapMinutes?: number;
 }): Map<string, TimeSlot[]> {
   const {
-    from,
-    until,
-    timezone,
-    personalHourWeights,
-    blockedTimes,
-    existingBlocks,
-    scheduledSoFar,
-    allowLateNight,
-    gapMinutes = 0,
+    from, until, timezone, personalHourWeights, blockedTimes,
+    existingBlocks, scheduledSoFar, allowLateNight, gapMinutes = 0,
   } = params;
 
   const byDay = new Map<string, TimeSlot[]>();
-  const endHour = allowLateNight ? LATE_NIGHT_END_HOUR : PREFERRED_END_HOUR;
-
   const zonedFrom = toZonedTime(from, timezone);
   const zonedUntil = toZonedTime(until, timezone);
 
@@ -215,19 +206,23 @@ function getOpenSlotsByDay(params: {
 
   while (!isAfter(currentZonedDay, endZonedDay)) {
     const dayKey = format(currentZonedDay, "yyyy-MM-dd");
-
+    const isToday = currentZonedDay.getTime() === startOfDay(zonedFrom).getTime();
+    
+    // NIGHT OWL FIX: If it is today, we allow them to start *now* (rounded up), overriding the 8 AM minimum.
     const roundedUpToHalfHour = Math.ceil(dateToHour(zonedFrom) * 2) / 2;
-    const startHour =
-      currentZonedDay.getTime() === startOfDay(zonedFrom).getTime()
-        ? Math.max(PREFERRED_START_HOUR, roundedUpToHalfHour)
-        : allowLateNight
-          ? LATE_NIGHT_START_HOUR
-          : PREFERRED_START_HOUR;
+    const startHour = isToday 
+      ? roundedUpToHalfHour 
+      : (allowLateNight ? LATE_NIGHT_START_HOUR : PREFERRED_START_HOUR);
+
+    // If they are scheduling late at night, dynamically push the end hour to midnight so today isn't completely blocked off.
+    const currentEndHour = (isToday && roundedUpToHalfHour >= PREFERRED_END_HOUR)
+      ? LATE_NIGHT_END_HOUR
+      : (allowLateNight ? LATE_NIGHT_END_HOUR : PREFERRED_END_HOUR);
 
     let hour = startHour;
     const daySlots: TimeSlot[] = [];
 
-    while (hour < endHour) {
+    while (hour < currentEndHour) {
       const zonedSlotStart = setMinutes(
         setHours(new Date(currentZonedDay), Math.floor(hour)),
         Math.round((hour % 1) * 60)
@@ -425,15 +420,10 @@ function placeTurn(params: {
 
     const orderedDayKeys = [...slotsByDay.keys()].sort();
 
-    // 1. "both": Respect spacing, daily assignment limits, and global total limits.
-    // 2. "assignmentOnly": Drop global limits, keep assignment limits and spacing.
-    // 3. "spacingOnly" (NEW): Drop daily limits (allow cramming on a future day), but fiercely protect the long-term spacing.
-    // 4. "none": Absolute panic mode. Ignore everything and just get it on the calendar anywhere ASAP.
     for (const dayPreference of ["both", "assignmentOnly", "spacingOnly", "none"] as const) {
       for (const dayKey of orderedDayKeys) {
         
         if (dayPreference !== "none") {
-          // Strictly skip days before our paced target unless we completely fall through to 'none'
           if (dayKey < idealDayKey) continue;
         }
 
@@ -516,15 +506,16 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
   const atRisk: ScheduleOutput["atRisk"] = [];
   const panicTaskIds = new Set<string>();
 
+  // Tracks the spacing for pacing out work
   const assignmentNextIdealDate = new Map<string, Date>();
+  // CHRONOLOGY FIX: Strictly tracks the end time of the last block scheduled for this assignment
+  const assignmentLatestEnd = new Map<string, Date>();
+
   const remainingHours = new Map<string, number>();
   const originalHoursToSchedule = new Map<string, number>();
   const finished = new Set<string>();
 
-  // 1. Map original task order to preserve chronological dependencies (e.g., Intro -> Body -> Conclusion)
   const originalTaskOrder = new Map(input.tasks.map((t, i) => [t.id, i]));
-  
-  // 2. Group tasks by assignment
   const tasksByAssignment = new Map<string, Array<Task & { assignment: Assignment }>>();
 
   for (const task of input.tasks) {
@@ -546,12 +537,10 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
     tasksByAssignment.get(task.assignment.id)!.push(task);
   }
 
-  // 3. Sort tasks within each assignment to ensure they are processed chronologically
   for (const tasks of tasksByAssignment.values()) {
     tasks.sort((a, b) => originalTaskOrder.get(a.id)! - originalTaskOrder.get(b.id)!);
   }
 
-  // 4. Sort the assignments themselves by priority to determine round-robin order
   const sortedAssignments = Array.from(tasksByAssignment.entries())
     .map(([id, tasks]) => ({
       id,
@@ -588,7 +577,6 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
   let passGuard = 0;
   const MAX_PASSES = 500;
 
-  // The round-robin now takes turns by ASSIGNMENT, ensuring internal tasks are executed in order.
   while (progressMadeThisPass && passGuard < MAX_PASSES) {
     progressMadeThisPass = false;
     passGuard++;
@@ -597,7 +585,6 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
     for (const group of sortedAssignments) {
       const { assignment, tasks } = group;
 
-      // Find the FIRST unfinished task in this assignment's chronological queue
       const task = tasks.find(t => !finished.has(t.id));
       if (!task) continue;
 
@@ -640,10 +627,16 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
       const daySessionCounts = assignmentDaySessionCounts.get(assignment.id)!;
 
       const turnHours = Math.min(MAX_CONTINUOUS_HOURS, remaining);
+      
+      // Compute earliest possible start time to enforce strict forward-moving chronology
+      const lastAssignmentBlockEnd = assignmentLatestEnd.get(assignment.id) ?? now;
+      const earliestStartForChronology = isAfter(lastAssignmentBlockEnd, now) ? lastAssignmentBlockEnd : now;
+
       const idealNextDate = assignmentNextIdealDate.get(assignment.id) ?? now;
 
       const placed = placeTurn({
-        from: now, until, timezone: input.timezone, turnHours,
+        from: earliestStartForChronology, // Enforces chronology
+        until, timezone: input.timezone, turnHours,
         peakPreferenceStrength: urgency.peakPreferenceStrength,
         allowLateNight: urgency.allowLateNight, respectGap: !isPanic,
         personalHourWeights: input.personalHourWeights, blockedTimes: input.blockedTimes,
@@ -671,6 +664,9 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
       globalDayTotals.set(placed.dayKey, (globalDayTotals.get(placed.dayKey) ?? 0) + placed.hours);
       remainingHours.set(task.id, remaining - placed.hours);
       progressMadeThisPass = true;
+
+      // Update chronology tracker
+      assignmentLatestEnd.set(assignment.id, placed.end);
 
       const effectiveNeededPerDay = Math.max(0.1, urgency.neededHoursPerDay);
       const daysCovered = placed.hours / effectiveNeededPerDay;
