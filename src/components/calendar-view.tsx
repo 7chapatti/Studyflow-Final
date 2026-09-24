@@ -14,7 +14,16 @@ import {
 } from "date-fns";
 import type { Assignment, Task } from "@/types";
 import { COLOUR_PALETTE, DUE_SOON_COLOUR } from "@/types";
-import { CheckIcon, ChevronLeftIcon, ChevronRightIcon, PencilIcon, RefreshIcon, TrashIcon, WandIcon, XIcon } from "@/components/icons";
+import { 
+  CheckIcon, 
+  ChevronLeftIcon, 
+  ChevronRightIcon, 
+  PencilIcon, 
+  RefreshIcon, 
+  TrashIcon, 
+  WandIcon, 
+  XIcon 
+} from "@/components/icons";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
@@ -23,6 +32,7 @@ const GUTTER_WIDTH = 56;
 const LONG_PRESS_MS = 500;
 const DRAG_THRESHOLD_PX = 4;
 
+// ── Types & Interfaces ────────────────────────────────────────────────────────
 interface CalendarBlock {
   id: string;
   taskId: string;
@@ -76,22 +86,6 @@ interface ContextMenu {
   block: AnyBlock;
 }
 
-function getWeekStart(base: Date): Date {
-  return startOfWeek(base, { weekStartsOn: 1 });
-}
-
-function pad(n: number): string {
-  return String(n).padStart(2, "0");
-}
-
-function snapToHalfHour(hour: number): number {
-  return Math.round(hour * 2) / 2;
-}
-
-function fmtHour(h: number): string {
-  return `${pad(Math.floor(h))}:${pad(Math.round((h % 1) * 60))}`;
-}
-
 interface RawScheduledBlockRow {
   id: string;
   task_id: string;
@@ -109,6 +103,21 @@ interface RawBlockedTimeRow {
   days: string[];
 }
 
+interface CalendarViewProps {
+  initialWeekBase?: string;
+  initialBlocksRaw?: RawScheduledBlockRow[];
+  initialBlockedTimesRaw?: RawBlockedTimeRow[];
+  initialAssignments?: Assignment[];
+  newlyMissedCount?: number;
+}
+
+// ── Math & Formatting Helpers ──────────────────────────────────────────────────
+function getWeekStart(base: Date): Date { return startOfWeek(base, { weekStartsOn: 1 }); }
+function pad(n: number): string { return String(n).padStart(2, "0"); }
+function snapToHalfHour(hour: number): number { return Math.round(hour * 2) / 2; }
+function fmtHour(h: number): string { return `${pad(Math.floor(h))}:${pad(Math.round((h % 1) * 60))}`; }
+
+// ── Data Builders ─────────────────────────────────────────────────────────────
 function buildTaskBlocks(blocksRaw: RawScheduledBlockRow[], weekDays: Date[]): CalendarBlock[] {
   const calBlocks: CalendarBlock[] = [];
   for (const b of blocksRaw ?? []) {
@@ -140,15 +149,9 @@ function buildMergedBlockedTimes(btRaw: RawBlockedTimeRow[]): CalendarBlockedTim
     for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
       if ((bt.days as string[]).includes(DAYS[dayIdx])) {
         rawBT.push({
-          id: `${bt.id}-${dayIdx}`,
-          sourceId: bt.id,
-          sourceIds: [bt.id],
-          label: bt.label,
-          startHour: Number(bt.start_hour),
-          endHour: Number(bt.end_hour),
-          dayIndex: dayIdx,
-          isMerged: false,
-          type: "blocked",
+          id: `${bt.id}-${dayIdx}`, sourceId: bt.id, sourceIds: [bt.id],
+          label: bt.label, startHour: Number(bt.start_hour), endHour: Number(bt.end_hour),
+          dayIndex: dayIdx, isMerged: false, type: "blocked",
         });
       }
     }
@@ -164,9 +167,7 @@ function buildMergedBlockedTimes(btRaw: RawBlockedTimeRow[]): CalendarBlockedTim
       while (j < dayBTs.length && dayBTs[j].startHour < cur.endHour) {
         cur = {
           ...cur,
-          label: cur.label === dayBTs[j].label
-            ? cur.label
-            : `${cur.label} + ${dayBTs[j].label}`,
+          label: cur.label === dayBTs[j].label ? cur.label : `${cur.label} + ${dayBTs[j].label}`,
           startHour: Math.min(cur.startHour, dayBTs[j].startHour),
           endHour: Math.max(cur.endHour, dayBTs[j].endHour),
           sourceIds: [...cur.sourceIds, ...dayBTs[j].sourceIds],
@@ -181,14 +182,7 @@ function buildMergedBlockedTimes(btRaw: RawBlockedTimeRow[]): CalendarBlockedTim
   return mergedBT;
 }
 
-interface CalendarViewProps {
-  initialWeekBase?: string;
-  initialBlocksRaw?: RawScheduledBlockRow[];
-  initialBlockedTimesRaw?: RawBlockedTimeRow[];
-  initialAssignments?: Assignment[];
-  newlyMissedCount?: number;
-}
-
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function CalendarView({
   initialWeekBase,
   initialBlocksRaw,
@@ -200,9 +194,7 @@ export default function CalendarView({
   const desktopGridRef = useRef<HTMLDivElement>(null);
   const mobileGridRef = useRef<HTMLDivElement>(null);
 
-  const [weekBase, setWeekBase] = useState(() =>
-    initialWeekBase ? new Date(initialWeekBase) : new Date()
-  );
+  const [weekBase, setWeekBase] = useState(() => initialWeekBase ? new Date(initialWeekBase) : new Date());
   const [activeDayIndex, setActiveDayIndex] = useState(() => {
     const d = new Date().getDay();
     return d === 0 ? 6 : d - 1;
@@ -211,13 +203,10 @@ export default function CalendarView({
   const hasServerData = initialBlocksRaw !== undefined;
   const initialWeekDays = DAYS.map((_, i) => addDays(getWeekStart(weekBase), i));
 
-  const [taskBlocks, setTaskBlocks] = useState<CalendarBlock[]>(() =>
-    initialBlocksRaw ? buildTaskBlocks(initialBlocksRaw, initialWeekDays) : []
-  );
-  const [blockedTimes, setBlockedTimes] = useState<CalendarBlockedTime[]>(() =>
-    initialBlockedTimesRaw ? buildMergedBlockedTimes(initialBlockedTimesRaw) : []
-  );
+  const [taskBlocks, setTaskBlocks] = useState<CalendarBlock[]>(() => initialBlocksRaw ? buildTaskBlocks(initialBlocksRaw, initialWeekDays) : []);
+  const [blockedTimes, setBlockedTimes] = useState<CalendarBlockedTime[]>(() => initialBlockedTimesRaw ? buildMergedBlockedTimes(initialBlockedTimesRaw) : []);
   const [assignments, setAssignments] = useState<Assignment[]>(initialAssignments ?? []);
+  
   const [loading, setLoading] = useState(!hasServerData);
   const [rescheduling, setRescheduling] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -235,6 +224,7 @@ export default function CalendarView({
   const weekDays = DAYS.map((_, i) => addDays(weekStart, i));
   const today = new Date();
 
+  // ── Toast & Data Fetching ──────────────────────────────────────────────────
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     const duration = Math.min(3000 + Math.max(0, msg.length - 40) * 40, 8000);
@@ -247,31 +237,21 @@ export default function CalendarView({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
 
-    const [{ data: blocksRaw }, { data: btRaw }, { data: asgnRaw }] =
-      await Promise.all([
-        supabase
-          .from("scheduled_blocks")
-          .select("*, task:tasks(name, status, assignment:assignments(id, name, colour_index))")
-          .eq("user_id", user.id)
-          .gte("start_time", weekStart.toISOString())
-          .lte("end_time", addDays(weekEnd, 1).toISOString())
-          .limit(200),
-        supabase.from("blocked_times").select("*").eq("user_id", user.id),
-        supabase.from("assignments").select("*").eq("user_id", user.id).eq("status", "active"),
-      ]);
+    const [{ data: blocksRaw }, { data: btRaw }, { data: asgnRaw }] = await Promise.all([
+      supabase.from("scheduled_blocks").select("*, task:tasks(name, status, assignment:assignments(id, name, colour_index))").eq("user_id", user.id).gte("start_time", weekStart.toISOString()).lte("end_time", addDays(weekEnd, 1).toISOString()).limit(200),
+      supabase.from("blocked_times").select("*").eq("user_id", user.id),
+      supabase.from("assignments").select("*").eq("user_id", user.id).eq("status", "active"),
+    ]);
 
     setTaskBlocks(buildTaskBlocks((blocksRaw ?? []) as RawScheduledBlockRow[], weekDays));
     setBlockedTimes(buildMergedBlockedTimes((btRaw ?? []) as RawBlockedTimeRow[]));
     setAssignments((asgnRaw ?? []) as Assignment[]);
     setLoading(false);
-  }, [weekStart.toISOString()]);
+  }, [weekStart.toISOString(), router]);
 
   const skippedInitialFetch = useRef(hasServerData);
   useEffect(() => {
-    if (skippedInitialFetch.current) {
-      skippedInitialFetch.current = false;
-      return;
-    }
+    if (skippedInitialFetch.current) { skippedInitialFetch.current = false; return; }
     loadData();
   }, [loadData]);
   useEffect(() => { setEditMode(false); }, [weekBase]);
@@ -281,22 +261,17 @@ export default function CalendarView({
     if (hasShownMissedNudge.current) return;
     hasShownMissedNudge.current = true;
     if (newlyMissedCount && newlyMissedCount > 0) {
-      const id = setTimeout(() => {
-        showToast(
-          newlyMissedCount === 1
-            ? "1 task was missed — click Organise to reschedule it"
-            : `${newlyMissedCount} tasks were missed — click Organise to reschedule them`
-        );
+      setTimeout(() => {
+        showToast(newlyMissedCount === 1 ? "1 task was missed — click Organise to reschedule it" : `${newlyMissedCount} tasks were missed — click Organise to reschedule them`);
       }, 0);
-      return () => clearTimeout(id);
     }
   }, [newlyMissedCount, showToast]);
 
+  // ── Drag & Drop Math ───────────────────────────────────────────────────────
   function getGridPos(clientX: number, clientY: number, isMobile: boolean) {
     const ref = isMobile ? mobileGridRef.current : desktopGridRef.current;
     if (!ref) return null;
     const rect = ref.getBoundingClientRect();
-
     const scrollTop = ref.scrollTop ?? 0;
     const relY = clientY - rect.top + scrollTop;
     const relX = clientX - rect.left - GUTTER_WIDTH;
@@ -313,9 +288,9 @@ export default function CalendarView({
       dayIndex = Math.floor(relX / colWidth);
       if (dayIndex < 0 || dayIndex > 6) return null;
     }
-
     return { dayIndex, hour };
   }
+
   function isInBlockedTime(dayIndex: number, s: number, e: number) {
     return blockedTimes.some((bt) => bt.dayIndex === dayIndex && s < bt.endHour && e > bt.startHour);
   }
@@ -330,6 +305,7 @@ export default function CalendarView({
     });
   }
 
+  // ── Drag Handlers ──────────────────────────────────────────────────────────
   function onPointerDown(e: React.MouseEvent | React.TouchEvent, block: AnyBlock, isMobile: boolean) {
     if (!editMode) return;
     e.preventDefault();
@@ -338,13 +314,10 @@ export default function CalendarView({
     const clientX = "touches" in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
     const clientY = "touches" in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY;
 
-    let startHour: number;
-    let durationHours: number;
-
+    let startHour: number, durationHours: number;
     if (block.type === "task") {
       startHour = block.startTime.getHours() + block.startTime.getMinutes() / 60;
-      const endHour = block.endTime.getHours() + block.endTime.getMinutes() / 60;
-      durationHours = endHour - startHour;
+      durationHours = (block.endTime.getHours() + block.endTime.getMinutes() / 60) - startHour;
     } else {
       startHour = block.startHour;
       durationHours = block.endHour - block.startHour;
@@ -353,16 +326,7 @@ export default function CalendarView({
     const pos = getGridPos(clientX, clientY, isMobile);
     const grabOffsetHours = pos ? Math.max(0, Math.min(pos.hour - startHour, durationHours - 0.25)) : 0;
 
-    const state: DragState = {
-      blockId: block.id,
-      blockType: block.type,
-      durationHours,
-      grabOffsetHours,
-      startX: clientX,
-      startY: clientY,
-      moved: false,
-    };
-
+    const state: DragState = { blockId: block.id, blockType: block.type, durationHours, grabOffsetHours, startX: clientX, startY: clientY, moved: false };
     dragRef.current = state;
     setDragging(state);
   }
@@ -376,17 +340,13 @@ export default function CalendarView({
     const clientY = "touches" in e ? e.touches[0].clientY : (e as MouseEvent).clientY;
 
     if (!state.moved) {
-      const dx = Math.abs(clientX - state.startX);
-      const dy = Math.abs(clientY - state.startY);
-      if (dx < DRAG_THRESHOLD_PX && dy < DRAG_THRESHOLD_PX) return;
+      if (Math.abs(clientX - state.startX) < DRAG_THRESHOLD_PX && Math.abs(clientY - state.startY) < DRAG_THRESHOLD_PX) return;
       if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
-      const next = { ...state, moved: true };
-      dragRef.current = next;
-      setDragging(next);
+      dragRef.current = { ...state, moved: true };
+      setDragging(dragRef.current);
     }
 
     setGhostPos({ x: clientX, y: clientY });
-
     const isMobile = window.innerWidth < 640;
     const pos = getGridPos(clientX, clientY, isMobile);
     if (!pos) { setDropTarget(null); return; }
@@ -400,28 +360,17 @@ export default function CalendarView({
     let willMerge = false;
 
     if (state.blockType === "task") {
-      // Tasks cannot overlap blocked times or other tasks
       if (isInBlockedTime(pos.dayIndex, snappedStart, snappedEnd)) { valid = false; reason = "Blocked time"; }
       else if (isOccupied(pos.dayIndex, snappedStart, snappedEnd, state.blockId)) { valid = false; reason = "Already taken"; }
     } else {
-      // Blocked times cannot overlap task blocks
       if (isOccupied(pos.dayIndex, snappedStart, snappedEnd, "")) { valid = false; reason = "Task block here"; }
-      else {
-        // Check if dropping onto another blocked time — will merge visually
-        const overlapping = blockedTimes.find(
-          (bt) => bt.id !== state.blockId && bt.dayIndex === pos.dayIndex &&
-            snappedStart < bt.endHour && snappedEnd > bt.startHour
-        );
-        if (overlapping) willMerge = true;
-      }
+      else if (blockedTimes.find((bt) => bt.id !== state.blockId && bt.dayIndex === pos.dayIndex && snappedStart < bt.endHour && snappedEnd > bt.startHour)) { willMerge = true; }
     }
-
     setDropTarget({ dayIndex: pos.dayIndex, startHour: snappedStart, endHour: snappedEnd, valid, reason, willMerge });
   }, [taskBlocks, blockedTimes, activeDayIndex]);
 
   const onPointerUp = useCallback(async () => {
     if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
-
     const state = dragRef.current;
     const drop = dropTarget;
 
@@ -431,7 +380,6 @@ export default function CalendarView({
     setGhostPos(null);
 
     if (!state || !state.moved || !drop) return;
-
     if (!drop.valid) {
       showToast(drop.reason === "Blocked time" ? "Can't place a task in a blocked time" : "That slot is already taken");
       return;
@@ -447,7 +395,6 @@ export default function CalendarView({
       newEnd.setHours(Math.floor(drop.endHour), Math.round((drop.endHour % 1) * 60), 0, 0);
 
       setTaskBlocks((prev) => prev.map((b) => b.id === state.blockId ? { ...b, startTime: newStart, endTime: newEnd, dayIndex: drop.dayIndex } : b));
-
       const { error } = await supabase.from("scheduled_blocks").update({ start_time: newStart.toISOString(), end_time: newEnd.toISOString() }).eq("id", state.blockId);
       if (error) { showToast("Failed to save — please try again"); loadData(); }
       else showToast("✓ Task moved");
@@ -457,51 +404,20 @@ export default function CalendarView({
       if (!bt) return;
 
       if (drop.willMerge) {
-        const target = blockedTimes.find(
-          (b) => b.id !== state.blockId && b.dayIndex === drop.dayIndex &&
-            drop.startHour < b.endHour && drop.endHour > b.startHour
-        );
+        const target = blockedTimes.find((b) => b.id !== state.blockId && b.dayIndex === drop.dayIndex && drop.startHour < b.endHour && drop.endHour > b.startHour);
         if (!target) return;
-
         const mergedStart = Math.min(bt.startHour, target.startHour, drop.startHour);
         const mergedEnd = Math.max(bt.endHour, target.endHour, drop.endHour);
         const mergedLabel = bt.label === target.label ? bt.label : `${bt.label} + ${target.label}`;
         const mergedSourceIds = [...bt.sourceIds, ...target.sourceIds];
 
-        const updates = mergedSourceIds.map((sid) =>
-          supabase.from("blocked_times").update({ start_hour: mergedStart, end_hour: mergedEnd }).eq("id", sid)
-        );
-        await Promise.all(updates);
-
-        setBlockedTimes((prev) => {
-          const filtered = prev.filter((b) => b.id !== bt.id && b.id !== target.id);
-          return [...filtered, {
-            ...bt,
-            id: bt.id,
-            label: mergedLabel,
-            startHour: mergedStart,
-            endHour: mergedEnd,
-            dayIndex: drop.dayIndex,
-            sourceIds: mergedSourceIds,
-            isMerged: true,
-          }];
-        });
+        await Promise.all(mergedSourceIds.map((sid) => supabase.from("blocked_times").update({ start_hour: mergedStart, end_hour: mergedEnd }).eq("id", sid)));
+        setBlockedTimes((prev) => [...prev.filter((b) => b.id !== bt.id && b.id !== target.id), { ...bt, id: bt.id, label: mergedLabel, startHour: mergedStart, endHour: mergedEnd, dayIndex: drop.dayIndex, sourceIds: mergedSourceIds, isMerged: true }]);
         showToast(`✓ Merged into one block (${mergedLabel})`);
-
       } else {
-        // Simple move — update position
-        setBlockedTimes((prev) => prev.map((b) =>
-          b.id === state.blockId
-            ? { ...b, startHour: drop.startHour, endHour: drop.endHour, dayIndex: drop.dayIndex }
-            : b
-        ));
-
-        const updates = bt.sourceIds.map((sourceId) =>
-          supabase.from("blocked_times").update({ start_hour: drop.startHour, end_hour: drop.endHour }).eq("id", sourceId)
-        );
-        const results = await Promise.all(updates);
-        const anyError = results.find((r) => r.error);
-        if (anyError) { showToast("Failed to save — please try again"); loadData(); }
+        setBlockedTimes((prev) => prev.map((b) => b.id === state.blockId ? { ...b, startHour: drop.startHour, endHour: drop.endHour, dayIndex: drop.dayIndex } : b));
+        const results = await Promise.all(bt.sourceIds.map((sourceId) => supabase.from("blocked_times").update({ start_hour: drop.startHour, end_hour: drop.endHour }).eq("id", sourceId)));
+        if (results.some((r) => r.error)) { showToast("Failed to save — please try again"); loadData(); }
         else showToast(bt.isMerged ? `✓ Merged block moved (${bt.sourceIds.length} rules updated)` : "✓ Blocked time moved");
       }
     }
@@ -521,9 +437,9 @@ export default function CalendarView({
     };
   }, [dragging, onPointerMove, onPointerUp]);
 
+  // ── Context Menu & Deletion ────────────────────────────────────────────────
   function openCtx(e: React.MouseEvent | React.TouchEvent, block: AnyBlock) {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     const clientX = "touches" in e ? e.changedTouches[0].clientX : (e as React.MouseEvent).clientX;
     const clientY = "touches" in e ? e.changedTouches[0].clientY : (e as React.MouseEvent).clientY;
     setContextMenu({ x: clientX, y: clientY, block });
@@ -539,7 +455,6 @@ export default function CalendarView({
   async function deleteBlock(block: AnyBlock) {
     setContextMenu(null);
     const supabase = createClient();
-
     if (block.type === "task") {
       await supabase.from("scheduled_blocks").delete().eq("id", block.id);
       setTaskBlocks((prev) => prev.filter((b) => b.id !== block.id));
@@ -547,75 +462,33 @@ export default function CalendarView({
     } else {
       const bt = block as CalendarBlockedTime;
       const thisDay = DAYS[block.dayIndex];
-
-      if (bt.isMerged) {
-        const ops = bt.sourceIds.map(async (sourceId) => {
-          const { data: original } = await supabase
-            .from("blocked_times").select("days").eq("id", sourceId).single();
-          if (!original) return;
-          const days = original.days as string[];
-          if (days.length === 1) {
-            await supabase.from("blocked_times").delete().eq("id", sourceId);
-          } else {
-            await supabase.from("blocked_times")
-              .update({ days: days.filter((d) => d !== thisDay) })
-              .eq("id", sourceId);
-          }
-        });
-        await Promise.all(ops);
-        await loadData();
-        showToast(`Removed all blocked times for ${thisDay}`);
-      } else {
-        const { data: original } = await supabase
-          .from("blocked_times").select("*").eq("id", bt.sourceId).single();
+      const ops = bt.sourceIds.map(async (sourceId) => {
+        const { data: original } = await supabase.from("blocked_times").select("days").eq("id", sourceId).single();
         if (!original) return;
         const days = original.days as string[];
-        if (days.length === 1) {
-          await supabase.from("blocked_times").delete().eq("id", bt.sourceId);
-        } else {
-          await supabase.from("blocked_times")
-            .update({ days: days.filter((d) => d !== thisDay) })
-            .eq("id", bt.sourceId);
-        }
-        await loadData();
-        showToast(`Removed ${bt.label} for ${thisDay}`);
-      }
+        if (days.length === 1) await supabase.from("blocked_times").delete().eq("id", sourceId);
+        else await supabase.from("blocked_times").update({ days: days.filter((d) => d !== thisDay) }).eq("id", sourceId);
+      });
+      await Promise.all(ops);
+      await loadData();
+      showToast(bt.isMerged ? `Removed all blocked times for ${thisDay}` : `Removed ${bt.label} for ${thisDay}`);
     }
   }
 
   async function separateBlocks(bt: CalendarBlockedTime) {
     setContextMenu(null);
     if (!bt.isMerged) return;
-
     const supabase = createClient();
-    const { data: rows } = await supabase
-      .from("blocked_times")
-      .select("id, label, start_hour, end_hour, days")
-      .in("id", bt.sourceIds);
-
+    const { data: rows } = await supabase.from("blocked_times").select("id, label, start_hour, end_hour, days").in("id", bt.sourceIds);
     if (!rows || rows.length === 0) { await loadData(); return; }
-
-    // Build individual display blocks for this day
+    
     const thisDay = DAYS[bt.dayIndex];
-    const separated: CalendarBlockedTime[] = rows
-      .filter((r) => (r.days as string[]).includes(thisDay))
-      .map((r, i) => ({
-        id: `${r.id}-${bt.dayIndex}-sep-${i}`,
-        sourceId: r.id,
-        sourceIds: [r.id],
-        label: r.label,
-        startHour: Number(r.start_hour),
-        endHour: Number(r.end_hour),
-        dayIndex: bt.dayIndex,
-        isMerged: false,
-        type: "blocked" as const,
-      }));
+    const separated: CalendarBlockedTime[] = rows.filter((r) => (r.days as string[]).includes(thisDay)).map((r, i) => ({
+      id: `${r.id}-${bt.dayIndex}-sep-${i}`, sourceId: r.id, sourceIds: [r.id], label: r.label,
+      startHour: Number(r.start_hour), endHour: Number(r.end_hour), dayIndex: bt.dayIndex, isMerged: false, type: "blocked",
+    }));
 
-    setBlockedTimes((prev) => {
-      const filtered = prev.filter((b) => b.id !== bt.id);
-      return [...filtered, ...separated];
-    });
-
+    setBlockedTimes((prev) => [...prev.filter((b) => b.id !== bt.id), ...separated]);
     showToast(`Separated into ${separated.length} blocks`);
   }
 
@@ -627,19 +500,15 @@ export default function CalendarView({
       if (json.success) {
         await loadData();
         const missedMessages: string[] = json.data.missedTaskMessages ?? [];
-        if (missedMessages.length > 0) {
-          const extra = missedMessages.length > 1 ? ` (+${missedMessages.length - 1} more)` : "";
-          showToast(`${missedMessages[0]}${extra}`);
-        } else if (json.data.atRisk?.length > 0) {
-          showToast(`⚠ "${json.data.atRisk[0].assignmentName}" may not finish before deadline.`);
-        } else {
-          showToast("✓ Tasks rescheduled around your blocked times");
-        }
+        if (missedMessages.length > 0) showToast(`${missedMessages[0]}${missedMessages.length > 1 ? ` (+${missedMessages.length - 1} more)` : ""}`);
+        else if (json.data.atRisk?.length > 0) showToast(`⚠ "${json.data.atRisk[0].assignmentName}" may not finish before deadline.`);
+        else showToast("✓ Tasks rescheduled around your blocked times");
       }
     } catch { showToast("Reschedule failed. Please try again."); }
     finally { setRescheduling(false); }
   }
 
+  // ── Render Helpers ─────────────────────────────────────────────────────────
   function renderTask(block: CalendarBlock, isMobile: boolean) {
     const colour = COLOUR_PALETTE[block.colourIndex % COLOUR_PALETTE.length];
     const sH = block.startTime.getHours() + block.startTime.getMinutes() / 60;
@@ -647,13 +516,12 @@ export default function CalendarView({
     const top = sH * ROW_HEIGHT;
     const height = Math.max((eH - sH) * ROW_HEIGHT, 20);
     const isDragging = dragging?.blockId === block.id && dragging.moved;
-
     const { bg, border, text: textColour } = block.isPanic ? DUE_SOON_COLOUR : colour;
 
     return (
       <button
         key={block.id}
-        className={`absolute left-0.5 right-0.5 rounded-md px-1.5 py-1 text-left overflow-hidden z-10 select-none transition-opacity ${editMode ? "cursor-grab ring-1 ring-text/20" : "cursor-pointer hover:brightness-110"} ${isDragging ? "opacity-20" : "opacity-100"}`}
+        className={`absolute left-0.5 right-0.5 rounded-md px-1.5 py-1 text-left overflow-hidden z-10 select-none transition-all ${editMode ? "cursor-grab ring-2 ring-indigo/40 hover:brightness-95 shadow-sm" : "cursor-pointer hover:brightness-110"} ${isDragging ? "opacity-30 scale-95" : "opacity-100"}`}
         style={{ top, height, background: bg, borderLeft: `3px solid ${border}` }}
         aria-label={block.isPanic ? `${block.taskName} (due soon)` : undefined}
         onMouseDown={editMode ? (e) => onPointerDown(e, block, isMobile) : undefined}
@@ -664,7 +532,7 @@ export default function CalendarView({
         onClick={!editMode ? () => router.push(`/dashboard/assignment/${block.assignmentId}`) : undefined}
       >
         <p className="text-xs font-medium truncate leading-tight" style={{ color: textColour }}>
-          {block.isPanic && "! "}{block.taskName}{editMode && <span className="opacity-40"> ⠿</span>}
+          {block.isPanic && "! "}{block.taskName}{editMode && <span className="opacity-40 ml-1 text-[10px]">⠿</span>}
         </p>
         {height > 30 && (
           <p className="text-xs truncate opacity-70" style={{ color: textColour }}>
@@ -683,7 +551,7 @@ export default function CalendarView({
     return (
       <div
         key={bt.id}
-        className={`absolute left-0.5 right-0.5 rounded-md border select-none transition-opacity ${editMode ? "bg-blocked border-indigo/60 cursor-grab" : "bg-blocked border-blocked-edge pointer-events-none"} ${isDragging ? "opacity-20" : "opacity-100"}`}
+        className={`absolute left-0.5 right-0.5 rounded-md border select-none transition-all ${editMode ? "bg-blocked border-indigo/60 cursor-grab ring-1 ring-indigo/20 shadow-sm hover:brightness-95" : "bg-blocked border-blocked-edge pointer-events-none"} ${isDragging ? "opacity-30 scale-95" : "opacity-100"}`}
         style={{ top, height }}
         onMouseDown={editMode ? (e) => onPointerDown(e as unknown as React.MouseEvent, bt, isMobile) : undefined}
         onTouchStart={(e) => { if (editMode) onPointerDown(e, bt, isMobile); startLongPress(e, bt); }}
@@ -692,7 +560,7 @@ export default function CalendarView({
         onContextMenu={(e) => openCtx(e as unknown as React.MouseEvent, bt)}
       >
         <span className="absolute top-1 left-1.5 text-xs text-text font-medium truncate max-w-full pr-1">
-          {bt.label}{editMode && <span className="opacity-40"> ⠿</span>}
+          {bt.label}{editMode && <span className="opacity-40 ml-1 text-[10px]">⠿</span>}
         </span>
       </div>
     );
@@ -705,23 +573,11 @@ export default function CalendarView({
     const isMergePreview = dropTarget.valid && dropTarget.willMerge;
     return (
       <div
-        className={`absolute left-0.5 right-0.5 rounded-md z-20 border-2 pointer-events-none ${
-          !dropTarget.valid ? "bg-red/20 border-red"
-          : isMergePreview ? "bg-amber/20 border-amber"
-          : "bg-green/20 border-green"
-        }`}
+        className={`absolute left-0.5 right-0.5 rounded-md z-20 border-2 pointer-events-none ${!dropTarget.valid ? "bg-red/20 border-red" : isMergePreview ? "bg-amber/20 border-amber" : "bg-green/20 border-green"}`}
         style={{ top, height }}
       >
-        <p className={`text-xs font-medium px-1.5 pt-1 truncate ${
-          !dropTarget.valid ? "text-red"
-          : isMergePreview ? "text-amber"
-          : "text-green"
-        }`}>
-          {!dropTarget.valid
-            ? dropTarget.reason
-            : isMergePreview
-            ? `Merge → ${fmtHour(dropTarget.startHour)}–${fmtHour(dropTarget.endHour)}`
-            : `${fmtHour(dropTarget.startHour)}–${fmtHour(dropTarget.endHour)}`}
+        <p className={`text-xs font-medium px-1.5 pt-1 truncate ${!dropTarget.valid ? "text-red" : isMergePreview ? "text-amber" : "text-green"}`}>
+          {!dropTarget.valid ? dropTarget.reason : isMergePreview ? `Merge → ${fmtHour(dropTarget.startHour)}–${fmtHour(dropTarget.endHour)}` : `${fmtHour(dropTarget.startHour)}–${fmtHour(dropTarget.endHour)}`}
         </p>
       </div>
     );
@@ -741,9 +597,9 @@ export default function CalendarView({
     return (
       <>
         {HOURS.map((hour) => (
-          <div key={hour} className="absolute left-0 right-0 border-t border-border" style={{ top: `${hour * ROW_HEIGHT}px` }}>
+          <div key={hour} className="absolute left-0 right-0 border-t border-border/50" style={{ top: `${hour * ROW_HEIGHT}px` }}>
             {hour > 0 && (
-              <span className="absolute left-0 w-14 text-right pr-2 text-xs text-dim select-none" style={{ top: -10 }}>
+              <span className="absolute left-0 w-14 text-right pr-2 text-xs text-dim select-none font-medium" style={{ top: -9 }}>
                 {pad(hour)}:00
               </span>
             )}
@@ -754,22 +610,20 @@ export default function CalendarView({
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)]" onClick={() => setContextMenu(null)}>
-
-      {/* Drag ghost — floats under cursor */}
+    <div className="flex flex-col h-[calc(100vh-56px)] bg-card" onClick={() => setContextMenu(null)}>
+      
+      {/* ── DRAG GHOST ──────────────────────────────────────────────────────── */}
       {dragging?.moved && ghostPos && dropTarget && (() => {
         const label = dragging.blockType === "task"
           ? (taskBlocks.find((b) => b.id === dragging.blockId)?.taskName ?? "")
           : (blockedTimes.find((b) => b.id === dragging.blockId)?.label ?? "");
         return (
           <div
-            className="fixed z-50 pointer-events-none rounded-md px-1.5 py-1 shadow-xl opacity-80"
+            className="fixed z-50 pointer-events-none rounded-md px-1.5 py-1 shadow-xl opacity-90 backdrop-blur-sm"
             style={{
-              left: ghostPos.x + 10,
-              top: ghostPos.y - dragging.grabOffsetHours * ROW_HEIGHT,
-              width: 130,
-              height: Math.max(dragging.durationHours * ROW_HEIGHT, 20),
-              background: dropTarget.valid ? "rgba(125,187,121,0.3)" : "rgba(232,128,111,0.3)",
+              left: ghostPos.x + 10, top: ghostPos.y - dragging.grabOffsetHours * ROW_HEIGHT,
+              width: 130, height: Math.max(dragging.durationHours * ROW_HEIGHT, 20),
+              background: dropTarget.valid ? "rgba(125,187,121,0.2)" : "rgba(232,128,111,0.2)",
               border: `2px solid ${dropTarget.valid ? "#7DBB79" : "#E8806F"}`,
             }}
           >
@@ -778,80 +632,54 @@ export default function CalendarView({
         );
       })()}
 
-      {/* Context menu */}
+      {/* ── CONTEXT MENU ────────────────────────────────────────────────────── */}
       {contextMenu && (
         <div
-          className="fixed z-50 bg-card border border-border rounded-xl shadow-xl py-1 min-w-[190px]"
-          style={{
-            left: Math.min(contextMenu.x, window.innerWidth - 210),
-            top: Math.min(contextMenu.y, window.innerHeight - 160),
-          }}
+          className="fixed z-50 bg-card border border-border rounded-xl shadow-xl py-1 min-w-[190px] overflow-hidden"
+          style={{ left: Math.min(contextMenu.x, window.innerWidth - 210), top: Math.min(contextMenu.y, window.innerHeight - 160) }}
           onClick={(e) => e.stopPropagation()}
         >
           <p className="text-xs text-dim px-3 py-1.5 border-b border-border truncate font-medium">
-            {contextMenu.block.type === "task"
-              ? (contextMenu.block as CalendarBlock).taskName
-              : (contextMenu.block as CalendarBlockedTime).label}
+            {contextMenu.block.type === "task" ? (contextMenu.block as CalendarBlock).taskName : (contextMenu.block as CalendarBlockedTime).label}
           </p>
           {contextMenu.block.type === "task" && (
-            <button
-              onClick={() => { setContextMenu(null); router.push(`/dashboard/assignment/${(contextMenu.block as CalendarBlock).assignmentId}`); }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-text hover:bg-navy3 transition-colors text-left"
-            >
-              <CheckIcon />
-              Go to assignment
+            <button onClick={() => { setContextMenu(null); router.push(`/dashboard/assignment/${(contextMenu.block as CalendarBlock).assignmentId}`); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-text hover:bg-navy3 transition-colors text-left">
+              <CheckIcon /> Go to assignment
             </button>
           )}
           {contextMenu.block.type === "blocked" && (
             <>
-              <button
-                onClick={() => { setContextMenu(null); router.push("/dashboard/blocked"); }}
-                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-text hover:bg-navy3 transition-colors text-left"
-              >
-                <PencilIcon />
-                Edit blocked times
+              <button onClick={() => { setContextMenu(null); router.push("/dashboard/blocked"); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-text hover:bg-navy3 transition-colors text-left">
+                <PencilIcon /> Edit blocked times
               </button>
               {(contextMenu.block as CalendarBlockedTime).isMerged && (
-                <button
-                  onClick={() => separateBlocks(contextMenu.block as CalendarBlockedTime)}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-text hover:bg-navy3 transition-colors text-left"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
+                <button onClick={() => separateBlocks(contextMenu.block as CalendarBlockedTime)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-muted hover:text-text hover:bg-navy3 transition-colors text-left">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                   Separate blocks ({(contextMenu.block as CalendarBlockedTime).sourceIds.length})
                 </button>
               )}
             </>
           )}
-          <button
-            onClick={() => deleteBlock(contextMenu.block)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red hover:bg-red/10 transition-colors text-left"
-          >
-            <TrashIcon />
-            {contextMenu.block.type === "task"
-              ? "Remove this block"
-              : `Remove for ${DAYS[contextMenu.block.dayIndex]}`}
+          <button onClick={() => deleteBlock(contextMenu.block)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red hover:bg-red/10 transition-colors text-left">
+            <TrashIcon /> {contextMenu.block.type === "task" ? "Remove this block" : `Remove for ${DAYS[contextMenu.block.dayIndex]}`}
           </button>
-          <button
-            onClick={() => setContextMenu(null)}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-dim hover:text-text hover:bg-navy3 transition-colors text-left"
-          >
-            <XIcon />
-            Cancel
+          <button onClick={() => setContextMenu(null)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-dim hover:text-text hover:bg-navy3 transition-colors text-left">
+            <XIcon /> Cancel
           </button>
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0 flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1">
-            <button onClick={() => setWeekBase((d) => subWeeks(d, 1))} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted hover:text-text hover:border-indigo/50 transition-all" aria-label="Previous week"><ChevronLeftIcon /></button>
-            <button onClick={() => setWeekBase(() => new Date())} className="px-3 h-8 text-xs font-medium text-muted border border-border rounded-lg hover:text-text hover:border-indigo/50 transition-all">Today</button>
-            <button onClick={() => setWeekBase((d) => addWeeks(d, 1))} className="w-8 h-8 flex items-center justify-center rounded-lg border border-border text-muted hover:text-text hover:border-indigo/50 transition-all" aria-label="Next week"><ChevronRightIcon /></button>
+      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 border-b border-border shrink-0 gap-4 bg-card">
+        
+        {/* Left: Date Navigation */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center bg-navy3 rounded-lg border border-border p-0.5">
+            <button onClick={() => setWeekBase((d) => subWeeks(d, 1))} className="w-8 h-7 flex items-center justify-center rounded-md text-muted hover:text-text hover:bg-navy transition-all" aria-label="Previous week"><ChevronLeftIcon /></button>
+            <div className="w-[1px] h-4 bg-border mx-0.5" />
+            <button onClick={() => setWeekBase(() => new Date())} className="px-3 h-7 text-xs font-medium text-muted rounded-md hover:text-text hover:bg-navy transition-all">Today</button>
+            <div className="w-[1px] h-4 bg-border mx-0.5" />
+            <button onClick={() => setWeekBase((d) => addWeeks(d, 1))} className="w-8 h-7 flex items-center justify-center rounded-md text-muted hover:text-text hover:bg-navy transition-all" aria-label="Next week"><ChevronRightIcon /></button>
           </div>
           <h1 className="font-display text-sm font-semibold text-text hidden sm:block">
             {format(weekStart, "d MMM")} – {format(weekEnd, "d MMM yyyy")}
@@ -860,57 +688,69 @@ export default function CalendarView({
             {format(weekDays[activeDayIndex], "EEE d MMM")}
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button 
+            onClick={loadData} 
+            className="w-9 h-9 flex items-center justify-center text-muted border border-border bg-card hover:bg-navy3 hover:text-text rounded-lg transition-all" 
+            aria-label="Refresh Calendar"
+          >
+            <RefreshIcon />
+          </button>
+          
           <button
             onClick={() => setEditMode((e) => !e)}
-            className={`flex items-center gap-1.5 text-xs font-medium rounded-lg px-3 py-1.5 transition-all border ${editMode ? "bg-amber/10 text-amber border-amber/40 hover:bg-amber/20" : "text-muted border-border hover:text-il hover:border-indigo/50"}`}
+            className={`flex-1 sm:flex-none flex items-center justify-center gap-2 h-9 px-4 text-sm font-medium rounded-lg transition-all border ${
+              editMode 
+              ? "bg-amber/10 text-amber border-amber/40 shadow-inner" 
+              : "bg-card text-text border-border hover:bg-navy3"
+            }`}
           >
             {editMode ? <CheckIcon /> : <PencilIcon />}
-            {editMode ? "Done" : "Edit"}
+            {editMode ? "Done Editing" : "Edit Slots"}
           </button>
-          <button onClick={handleReschedule} disabled={rescheduling} className="flex items-center gap-1.5 text-xs font-medium text-muted border border-border hover:text-il hover:border-indigo/50 rounded-lg px-3 py-1.5 transition-all disabled:opacity-50">
-            {rescheduling ? <span className="w-3 h-3 border border-muted border-t-il rounded-full animate-spin" /> : <WandIcon />}
+          
+          <button 
+            onClick={handleReschedule} 
+            disabled={rescheduling} 
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 h-9 px-4 text-sm font-medium text-white bg-indigo hover:bg-indigo/90 border border-indigo rounded-lg transition-all shadow-sm disabled:opacity-60"
+          >
+            {rescheduling ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <WandIcon />}
             Organise
-          </button>
-          <button onClick={loadData} className="flex items-center gap-1.5 text-xs font-medium text-muted border border-border hover:text-il hover:border-indigo/50 rounded-lg px-3 py-1.5 transition-all" aria-label="Refresh">
-            <RefreshIcon />
-            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
       </div>
 
-      {/* Edit hint bar */}
+      {/* ── EDIT MODE HINT ──────────────────────────────────────────────────── */}
       {editMode && (
-        <div className="px-4 py-2 bg-amber/5 border-b border-amber/20 text-amber text-xs flex items-center gap-2 shrink-0">
+        <div className="px-4 py-2 bg-amber/10 border-b border-amber/20 text-amber text-xs font-medium flex items-center gap-2 shrink-0 animate-in fade-in slide-in-from-top-2">
           <PencilIcon />
-          Drag any block to move it. Right-click or long-press for options. Green = valid, red = taken or blocked.
+          Drag blocks to manually adjust your schedule. Green = valid drop, Red = blocked.
         </div>
       )}
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
-          <span className="w-6 h-6 border-2 border-border border-t-il rounded-full animate-spin" aria-label="Loading" />
+          <span className="w-8 h-8 border-2 border-border border-t-indigo rounded-full animate-spin" aria-label="Loading" />
         </div>
       ) : (
         <>
-          {/* ── DESKTOP ──────────────────────────────────────────────────── */}
+          {/* ── DESKTOP GRID ───────────────────────────────────────────────── */}
           <div className="hidden sm:flex flex-col flex-1 overflow-auto">
             <div className="min-w-[640px]">
-              {/* Sticky day headers */}
-              <div className="grid sticky top-0 z-30 bg-navy border-b border-border" style={{ gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)` }}>
+              <div className="grid sticky top-0 z-30 bg-card border-b border-border shadow-sm" style={{ gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)` }}>
                 <div className="border-r border-border" />
                 {weekDays.map((day, i) => {
                   const isToday = isSameDay(day, today);
                   return (
-                    <div key={i} className={`text-center py-2 border-r border-border last:border-r-0 ${isToday ? "bg-indigo/10" : ""}`}>
-                      <p className={`text-xs font-medium ${isToday ? "text-il" : "text-dim"}`}>{DAYS[i]}</p>
-                      <p className={`font-display text-lg font-semibold leading-tight ${isToday ? "text-il" : "text-text"}`}>{format(day, "d")}</p>
+                    <div key={i} className={`text-center py-2.5 border-r border-border last:border-r-0 ${isToday ? "bg-indigo/5" : ""}`}>
+                      <p className={`text-[11px] uppercase tracking-wider font-semibold ${isToday ? "text-indigo" : "text-dim"}`}>{DAYS[i]}</p>
+                      <p className={`font-display text-lg font-semibold mt-0.5 ${isToday ? "text-indigo" : "text-text"}`}>{format(day, "d")}</p>
                     </div>
                   );
                 })}
               </div>
-
-              {/* Grid — ref on this element for coordinate math */}
               <div ref={desktopGridRef} className="relative" style={{ height: `${24 * ROW_HEIGHT}px` }}>
                 <HourLines />
                 <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)` }}>
@@ -918,41 +758,39 @@ export default function CalendarView({
                   {weekDays.map((_, dayIdx) => <DayColumn key={dayIdx} dayIndex={dayIdx} isMobile={false} />)}
                 </div>
                 {weekDays.some((d) => isSameDay(d, today)) && (
-                  <div className="absolute border-t-2 border-red z-20 pointer-events-none" style={{ left: `${GUTTER_WIDTH}px`, right: 0, top: `${(today.getHours() + today.getMinutes() / 60) * ROW_HEIGHT}px` }}>
-                    <div className="w-2 h-2 rounded-full bg-red -translate-y-1 -translate-x-1" />
+                  <div className="absolute border-t-2 border-red/80 z-20 pointer-events-none" style={{ left: `${GUTTER_WIDTH}px`, right: 0, top: `${(today.getHours() + today.getMinutes() / 60) * ROW_HEIGHT}px` }}>
+                    <div className="w-2.5 h-2.5 rounded-full bg-red shadow-sm -translate-y-[5px] -translate-x-[5px]" />
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* ── MOBILE ───────────────────────────────────────────────────── */}
+          {/* ── MOBILE GRID ────────────────────────────────────────────────── */}
           <div className="flex sm:hidden flex-col flex-1 overflow-hidden">
-            <div className="flex border-b border-border shrink-0">
+            <div className="flex border-b border-border shrink-0 bg-card">
               {weekDays.map((day, i) => {
                 const isToday = isSameDay(day, today);
                 const isActive = i === activeDayIndex;
                 const hasBlocks = taskBlocks.some((b) => b.dayIndex === i);
                 return (
-                  <button key={i} onClick={() => setActiveDayIndex(i)} className={`flex-1 min-w-[44px] py-2 text-center transition-all border-b-2 ${isActive ? "border-indigo bg-indigo/10" : "border-transparent hover:bg-indigo/5"}`}>
-                    <p className={`text-xs font-medium ${isToday ? "text-il" : isActive ? "text-il" : "text-dim"}`}>{DAYS[i].charAt(0)}</p>
-                    <p className={`font-display text-base font-semibold ${isToday ? "text-il" : isActive ? "text-text" : "text-muted"}`}>{format(day, "d")}</p>
-                    {hasBlocks && <div className={`w-1 h-1 rounded-full mx-auto mt-0.5 ${isActive ? "bg-il" : "bg-dim"}`} />}
+                  <button key={i} onClick={() => setActiveDayIndex(i)} className={`flex-1 min-w-[44px] py-2.5 text-center transition-all border-b-2 ${isActive ? "border-indigo bg-indigo/5" : "border-transparent hover:bg-navy3"}`}>
+                    <p className={`text-[10px] uppercase tracking-wider font-semibold ${isToday ? "text-indigo" : isActive ? "text-text" : "text-dim"}`}>{DAYS[i].charAt(0)}</p>
+                    <p className={`font-display text-base font-semibold mt-0.5 ${isToday ? "text-indigo" : isActive ? "text-text" : "text-muted"}`}>{format(day, "d")}</p>
+                    {hasBlocks && <div className={`w-1 h-1 rounded-full mx-auto mt-1 ${isActive ? "bg-indigo" : "bg-border"}`} />}
                   </button>
                 );
               })}
             </div>
-
-            {/* Scrollable single-day area — ref here for mobile coordinate math */}
-            <div ref={mobileGridRef} className="flex-1 overflow-auto">
+            <div ref={mobileGridRef} className="flex-1 overflow-auto bg-card">
               <div className="relative" style={{ height: `${24 * ROW_HEIGHT}px` }}>
                 <HourLines />
                 <div className="absolute inset-0" style={{ paddingLeft: `${GUTTER_WIDTH}px` }}>
                   <DayColumn dayIndex={activeDayIndex} isMobile={true} />
                 </div>
                 {isSameDay(weekDays[activeDayIndex], today) && (
-                  <div className="absolute border-t-2 border-red z-20 pointer-events-none" style={{ left: `${GUTTER_WIDTH}px`, right: 0, top: `${(today.getHours() + today.getMinutes() / 60) * ROW_HEIGHT}px` }}>
-                    <div className="w-2 h-2 rounded-full bg-red -translate-y-1 -translate-x-1" />
+                  <div className="absolute border-t-2 border-red/80 z-20 pointer-events-none" style={{ left: `${GUTTER_WIDTH}px`, right: 0, top: `${(today.getHours() + today.getMinutes() / 60) * ROW_HEIGHT}px` }}>
+                    <div className="w-2.5 h-2.5 rounded-full bg-red shadow-sm -translate-y-[5px] -translate-x-[5px]" />
                   </div>
                 )}
               </div>
@@ -961,32 +799,33 @@ export default function CalendarView({
         </>
       )}
 
-      {/* Legend */}
+      {/* ── LEGEND ──────────────────────────────────────────────────────────── */}
       {assignments.length > 0 && (
-        <div className="shrink-0 px-4 py-2 border-t border-border flex flex-wrap gap-4">
+        <div className="shrink-0 px-4 py-3 border-t border-border flex flex-wrap gap-x-5 gap-y-2 bg-card">
           {assignments.map((asgn) => {
             const colour = COLOUR_PALETTE[asgn.colour_index % COLOUR_PALETTE.length];
             return (
-              <button key={asgn.id} onClick={() => router.push(`/dashboard/assignment/${asgn.id}`)} className="flex items-center gap-1.5 text-xs text-muted hover:text-text transition-colors">
-                <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: colour.border }} />
-                <span className="truncate max-w-[120px]">{asgn.name}</span>
+              <button key={asgn.id} onClick={() => router.push(`/dashboard/assignment/${asgn.id}`)} className="flex items-center gap-2 text-xs font-medium text-muted hover:text-text transition-colors">
+                <span className="w-3 h-3 rounded-[3px] shrink-0 border" style={{ background: colour.bg, borderColor: colour.border }} />
+                <span className="truncate max-w-[140px]">{asgn.name}</span>
               </button>
             );
           })}
-          <span className="flex items-center gap-1.5 text-xs text-muted">
-            <span className="w-2.5 h-2.5 rounded-sm shrink-0 bg-blocked border border-blocked-edge" />
+          <div className="w-[1px] h-4 bg-border hidden sm:block mx-1" />
+          <span className="flex items-center gap-2 text-xs font-medium text-muted">
+            <span className="w-3 h-3 rounded-[3px] shrink-0 bg-blocked border border-blocked-edge" />
             Blocked
           </span>
-          <span className="flex items-center gap-1.5 text-xs text-muted">
-            <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: DUE_SOON_COLOUR.bg }} />
+          <span className="flex items-center gap-2 text-xs font-medium text-muted">
+            <span className="w-3 h-3 rounded-[3px] shrink-0 border" style={{ background: DUE_SOON_COLOUR.bg, borderColor: DUE_SOON_COLOUR.border }} />
             Due soon
           </span>
         </div>
       )}
 
-      {/* Toast */}
+      {/* ── TOAST ───────────────────────────────────────────────────────────── */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-card border border-indigo text-text text-sm px-4 py-2.5 rounded-xl shadow-lg z-50 max-w-sm text-center" role="status" aria-live="polite">
+        <div className="fixed bottom-16 sm:bottom-8 left-1/2 -translate-x-1/2 bg-navy border border-border shadow-2xl text-text text-sm font-medium px-5 py-3 rounded-full z-50 max-w-sm text-center animate-in fade-in slide-in-from-bottom-4" role="status" aria-live="polite">
           {toast}
         </div>
       )}
