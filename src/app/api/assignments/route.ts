@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/api";
 import { createClient } from "@/lib/supabase/server";
 import { CreateAssignmentWithPlanSchema } from "@/lib/validation";
 import { logger } from "@/lib/logger";
+import { COLOUR_PALETTE } from "@/types";
 
 export async function POST(request: Request) {
   const auth = await requireAuth();
@@ -26,12 +27,34 @@ export async function POST(request: Request) {
   const { name, description, deadline, priority, sections, checklist } = parsed.data;
   const supabase = await createClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   const estimatedHours =
     sections.length > 0
       ? Math.round(sections.reduce((sum, s) => sum + s.hours, 0) * 10) / 10
       : 0;
 
-  const colourIndex = Math.floor(Math.random() * 6);
+  // Smart Colour Allocation
+  const { data: activeAsgns } = await supabase
+    .from("assignments")
+    .select("colour_index")
+    .eq("user_id", user.id)
+    .in("status", ["active", "complete"]);
+
+  const usedIndexes = new Set(activeAsgns?.map((a) => a.colour_index) || []);
+
+  // Fallback to a random colour if all palette options are currently in use
+  let colourIndex = Math.floor(Math.random() * COLOUR_PALETTE.length);
+  for (let i = 0; i < COLOUR_PALETTE.length; i++) {
+    if (!usedIndexes.has(i)) {
+      colourIndex = i;
+      break;
+    }
+  }
+
   const { data: assignmentId, error: rpcError } = await supabase.rpc("create_assignment_atomic", {
     p_name: name,
     p_description: description || null,
