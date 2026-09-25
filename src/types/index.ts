@@ -158,12 +158,16 @@ export const TIER_LIMITS = {
 } as const;
 
 export const COLOUR_PALETTE = [
-  { bg: "#386C9C", border: "#386C9C", text: "#F7F9F6" }, 
-  { bg: "#467A43", border: "#467A43", text: "#F7F9F6" }, 
-  { bg: "#6E5FA3", border: "#6E5FA3", text: "#F7F9F6" }, 
-  { bg: "#86661A", border: "#86661A", text: "#F7F9F6" }, 
-  { bg: "#2B7774", border: "#2B7774", text: "#F7F9F6" }, 
-  { bg: "#A4506F", border: "#A4506F", text: "#F7F9F6" }, 
+  { bg: "#386C9C", border: "#386C9C", text: "#F7F9F6" }, // 0: Original Blue
+  { bg: "#467A43", border: "#467A43", text: "#F7F9F6" }, // 1: Original Green
+  { bg: "#6E5FA3", border: "#6E5FA3", text: "#F7F9F6" }, // 2: Original Purple
+  { bg: "#86661A", border: "#86661A", text: "#F7F9F6" }, // 3: Original Gold
+  { bg: "#2B7774", border: "#2B7774", text: "#F7F9F6" }, // 4: Original Teal
+  { bg: "#A4506F", border: "#A4506F", text: "#F7F9F6" }, // 5: Original Rose
+  { bg: "#B86629", border: "#B86629", text: "#F7F9F6" }, // 6: Burnt Orange
+  { bg: "#4A6B82", border: "#4A6B82", text: "#F7F9F6" }, // 7: Slate Blue
+  { bg: "#8A4B7D", border: "#8A4B7D", text: "#F7F9F6" }, // 8: Deep Magenta
+  { bg: "#6B7231", border: "#6B7231", text: "#F7F9F6" }, // 9: Olive Green
 ] as const;
 
 export const DUE_SOON_COLOUR = {
@@ -181,4 +185,5 @@ export const DAYS_OF_WEEK = [
   "Sat",
   "Sun",
 ] as const;
+
 export type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
