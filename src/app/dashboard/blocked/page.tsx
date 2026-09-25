@@ -13,17 +13,7 @@ function fmt24(hour: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-function TimeInput({
-  id,
-  value,
-  onChange,
-  label,
-}: {
-  id: string;
-  value: number;
-  onChange: (v: number) => void;
-  label: string;
-}) {
+function TimeInput({ id, value, onChange, label }: { id: string; value: number; onChange: (v: number) => void; label: string; }) {
   const h = Math.floor(value);
   const m = Math.round((value % 1) * 60);
   const [hourStr, setHourStr] = useState(String(h).padStart(2, "0"));
@@ -46,61 +36,36 @@ function TimeInput({
 
   return (
     <div>
-      <p className="text-xs font-medium text-il mb-1.5">{label}</p>
-      <div className="flex items-center gap-1 bg-navy3 border border-border rounded-lg px-2 py-2 w-fit">
-        <input
-          id={id}
-          type="text"
-          inputMode="numeric"
-          maxLength={2}
-          value={hourStr}
-          onChange={(e) => setHourStr(e.target.value)}
-          onBlur={() => commit(hourStr, minStr)}
-          className="w-6 bg-transparent text-text text-sm text-center focus:outline-none"
-          aria-label="Hour"
-        />
-        <span className="text-dim text-sm">:</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          maxLength={2}
-          value={minStr}
-          onChange={(e) => setMinStr(e.target.value)}
-          onBlur={() => commit(hourStr, minStr)}
-          className="w-6 bg-transparent text-text text-sm text-center focus:outline-none"
-          aria-label="Minute"
-        />
+      <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-1.5">{label}</p>
+      <div className="flex items-center gap-1 bg-card border border-border focus-within:border-indigo focus-within:ring-1 focus-within:ring-indigo/20 rounded-lg px-2 py-2 w-fit transition-all shadow-sm">
+        <input id={id} type="text" inputMode="numeric" maxLength={2} value={hourStr} onChange={(e) => setHourStr(e.target.value)} onBlur={() => commit(hourStr, minStr)} className="w-7 bg-transparent text-text text-sm font-medium text-center focus:outline-none" aria-label="Hour" />
+        <span className="text-dim text-sm font-medium">:</span>
+        <input type="text" inputMode="numeric" maxLength={2} value={minStr} onChange={(e) => setMinStr(e.target.value)} onBlur={() => commit(hourStr, minStr)} className="w-7 bg-transparent text-text text-sm font-medium text-center focus:outline-none" aria-label="Minute" />
       </div>
     </div>
   );
 }
 
-const EMPTY_FORM = {
-  label: "",
-  days: [] as DayOfWeek[],
-  startHour: 9,
-  endHour: 17,
-  repeatWeekly: true,
-};
+const EMPTY_FORM = { label: "", days: [] as DayOfWeek[], startHour: 9, endHour: 17, repeatWeekly: true };
 
 export default function BlockedTimesPage() {
   const router = useRouter();
   const [blocked, setBlocked] = useState<BlockedTime[]>([]);
   const [loading, setLoading] = useState(true);
+  
   const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
   const [editError, setEditError] = useState("");
+  
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [resettingAll, setResettingAll] = useState(false);
   const [toast, setToast] = useState("");
 
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(""), 3000);
-  }
+  function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(""), 3000); }
 
   useEffect(() => { loadBlocked(); }, []);
 
@@ -108,8 +73,7 @@ export default function BlockedTimesPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
-    const { data } = await supabase
-      .from("blocked_times").select("*").eq("user_id", user.id).order("start_hour");
+    const { data } = await supabase.from("blocked_times").select("*").eq("user_id", user.id).order("start_hour");
     setBlocked((data ?? []) as BlockedTime[]);
     setLoading(false);
   }
@@ -119,309 +83,178 @@ export default function BlockedTimesPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     const now = new Date();
     const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 3_600_000);
-
-    const { data: schedBlocks } = await supabase
-      .from("scheduled_blocks")
-      .select("id, start_time, end_time")
-      .eq("user_id", user.id)
-      .gte("start_time", now.toISOString())
-      .lte("start_time", sevenDaysLater.toISOString());
-
+    const { data: schedBlocks } = await supabase.from("scheduled_blocks").select("id, start_time, end_time").eq("user_id", user.id).gte("start_time", now.toISOString()).lte("start_time", sevenDaysLater.toISOString());
     const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const idsToDelete: string[] = [];
-
     for (const sb of schedBlocks ?? []) {
       const start = new Date(sb.start_time);
-      const dayName = days[start.getDay()];
-      if (!(bt.days as string[]).includes(dayName)) continue;
+      if (!(bt.days as string[]).includes(days[start.getDay()])) continue;
       const startH = start.getHours() + start.getMinutes() / 60;
       const endH = new Date(sb.end_time).getHours() + new Date(sb.end_time).getMinutes() / 60;
-      if (startH < Number(bt.end_hour) && endH > Number(bt.start_hour)) {
-        idsToDelete.push(sb.id);
-      }
+      if (startH < Number(bt.end_hour) && endH > Number(bt.start_hour)) idsToDelete.push(sb.id);
     }
-
-    if (idsToDelete.length > 0) {
-      await supabase.from("scheduled_blocks").delete().in("id", idsToDelete);
-    }
-
+    if (idsToDelete.length > 0) await supabase.from("scheduled_blocks").delete().in("id", idsToDelete);
     setResettingId(null);
-    showToast(`✓ Reset "${bt.label}" — run Organise to reschedule around it`);
+    showToast(`✓ Reset "${bt.label}" — run Organise to reschedule`);
   }
 
   async function resetAllBlockedTimes() {
-    if (!confirm("Reset all blocked times? This will remove any manually moved task blocks that overlap with your blocked times. Run Organise afterwards to reschedule.")) return;
+    if (!confirm("Reset all blocked times? This removes manual overlaps. Run Organise afterwards.")) return;
     setResettingAll(true);
-    for (const bt of blocked) {
-      await resetBlockedTime(bt);
-    }
-    setResettingAll(false);
-    showToast("✓ All blocked times reset — run Organise to reschedule");
+    for (const bt of blocked) await resetBlockedTime(bt);
+    setResettingAll(false); showToast("✓ All blocked times reset");
   }
 
   function toggleDay(day: DayOfWeek, isEdit = false) {
-    if (isEdit) {
-      setEditForm((prev) => ({
-        ...prev,
-        days: prev.days.includes(day)
-          ? prev.days.filter((d) => d !== day)
-          : [...prev.days, day],
-      }));
-    } else {
-      setForm((prev) => ({
-        ...prev,
-        days: prev.days.includes(day)
-          ? prev.days.filter((d) => d !== day)
-          : [...prev.days, day],
-      }));
-    }
+    const update = (prev: typeof EMPTY_FORM) => ({ ...prev, days: prev.days.includes(day) ? prev.days.filter((d) => d !== day) : [...prev.days, day] });
+    isEdit ? setEditForm(update) : setForm(update);
   }
 
   async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    setFormError("");
-    if (!form.label.trim()) { setFormError("Please enter a label."); return; }
-    if (form.days.length === 0) { setFormError("Select at least one day."); return; }
-    if (form.endHour <= form.startHour) { setFormError("End time must be after start time."); return; }
+    e.preventDefault(); setFormError("");
+    if (!form.label.trim()) { setFormError("Enter a label."); return; }
+    if (form.days.length === 0) { setFormError("Select a day."); return; }
+    if (form.endHour <= form.startHour) { setFormError("End time must be after start."); return; }
     setSaving(true);
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push("/login"); return; }
-    const { data, error } = await supabase
-      .from("blocked_times")
-      .insert({ user_id: user.id, label: form.label.trim(), days: form.days, start_hour: form.startHour, end_hour: form.endHour, repeat_weekly: form.repeatWeekly })
-      .select().single();
-    if (error) { setFormError("Failed to save. Please try again."); }
-    else { setBlocked((prev) => [...prev, data as BlockedTime]); setForm(EMPTY_FORM); }
+    if (!user) return;
+    const { data, error } = await supabase.from("blocked_times").insert({ user_id: user.id, label: form.label.trim(), days: form.days, start_hour: form.startHour, end_hour: form.endHour, repeat_weekly: form.repeatWeekly }).select().single();
+    if (error) setFormError("Failed to save."); else { setBlocked((prev) => [...prev, data as BlockedTime]); setForm(EMPTY_FORM); }
     setSaving(false);
   }
 
   async function handleDelete(id: string, label: string) {
     if (!confirm(`Remove "${label}"?`)) return;
-    const supabase = createClient();
-    await supabase.from("blocked_times").delete().eq("id", id);
+    await createClient().from("blocked_times").delete().eq("id", id);
     setBlocked((prev) => prev.filter((b) => b.id !== id));
     if (editingId === id) setEditingId(null);
   }
 
   function startEdit(bt: BlockedTime) {
-    setEditingId(bt.id);
-    setEditForm({ label: bt.label, days: bt.days as DayOfWeek[], startHour: bt.start_hour, endHour: bt.end_hour, repeatWeekly: bt.repeat_weekly });
-    setEditError("");
+    setEditingId(bt.id); setEditForm({ label: bt.label, days: bt.days as DayOfWeek[], startHour: bt.start_hour, endHour: bt.end_hour, repeatWeekly: bt.repeat_weekly }); setEditError("");
   }
 
   async function handleSaveEdit() {
     setEditError("");
-    if (!editForm.label.trim()) { setEditError("Please enter a label."); return; }
-    if (editForm.days.length === 0) { setEditError("Select at least one day."); return; }
-    if (editForm.endHour <= editForm.startHour) { setEditError("End time must be after start time."); return; }
-    if (!confirm(`Save changes to "${blocked.find((b) => b.id === editingId)?.label}"?`)) return;
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("blocked_times")
-      .update({ label: editForm.label.trim(), days: editForm.days, start_hour: editForm.startHour, end_hour: editForm.endHour, repeat_weekly: editForm.repeatWeekly })
-      .eq("id", editingId!).select().single();
-    if (error) { setEditError("Failed to save. Please try again."); return; }
+    if (!editForm.label.trim() || editForm.days.length === 0 || editForm.endHour <= editForm.startHour) { setEditError("Invalid form."); return; }
+    const { data, error } = await createClient().from("blocked_times").update({ label: editForm.label.trim(), days: editForm.days, start_hour: editForm.startHour, end_hour: editForm.endHour, repeat_weekly: editForm.repeatWeekly }).eq("id", editingId!).select().single();
+    if (error) { setEditError("Failed to save."); return; }
     setBlocked((prev) => prev.map((b) => (b.id === editingId ? (data as BlockedTime) : b)));
     setEditingId(null);
   }
 
+  // Shared form UI renderer
+  const renderForm = (state: typeof EMPTY_FORM, setter: React.Dispatch<React.SetStateAction<typeof EMPTY_FORM>>, errorMsg: string, isEdit: boolean) => (
+    <div className="space-y-5 animate-in fade-in slide-in-from-top-2">
+      <div className="grid sm:grid-cols-2 gap-5">
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1.5">Label</label>
+          <input type="text" value={state.label} onChange={(e) => setter((p) => ({ ...p, label: e.target.value }))} maxLength={40} placeholder="e.g. Lectures, Work" className="w-full bg-card border border-border text-text placeholder-dim rounded-lg px-3 py-2.5 text-sm font-medium focus:border-indigo shadow-sm transition-colors" />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1.5">Days</label>
+          <div className="flex flex-wrap gap-1.5">
+            {DAYS_OF_WEEK.map((day) => (
+              <label key={day} className={`cursor-pointer px-2.5 py-1.5 rounded-md border text-[11px] font-bold uppercase tracking-wide transition-all shadow-sm ${state.days.includes(day) ? "bg-indigo text-white border-indigo" : "bg-card border-border text-muted hover:border-indigo/50"}`}>
+                <input type="checkbox" checked={state.days.includes(day)} onChange={() => toggleDay(day, isEdit)} className="sr-only" />
+                {day.substring(0, 3)}
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-end gap-6">
+        <TimeInput id={`${isEdit ? 'edit' : 'add'}-start`} value={state.startHour} onChange={(v) => setter((p) => ({ ...p, startHour: v }))} label="Start" />
+        <div className="w-4 h-[1px] bg-border mb-5" />
+        <TimeInput id={`${isEdit ? 'edit' : 'add'}-end`} value={state.endHour} onChange={(v) => setter((p) => ({ ...p, endHour: v }))} label="End" />
+        
+        <label className="flex items-center gap-2 cursor-pointer ml-auto mb-3 text-sm font-medium text-muted hover:text-text transition-colors">
+          <input type="checkbox" checked={state.repeatWeekly} onChange={(e) => setter((p) => ({ ...p, repeatWeekly: e.target.checked }))} className="w-4 h-4 rounded border-border accent-indigo" />
+          Repeat Weekly
+        </label>
+      </div>
+      {errorMsg && <p className="text-red text-xs font-medium bg-red/10 px-3 py-2 rounded-lg border border-red/20 inline-block">{errorMsg}</p>}
+    </div>
+  );
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      <header className="mb-8">
-        <h1 className="font-display text-2xl font-semibold text-text mb-1">Blocked times</h1>
-        <p className="text-muted text-sm">
-          Add times you&apos;re unavailable. StudyFlow will schedule around them automatically.
-        </p>
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <header className="mb-8 border-b border-border pb-6">
+        <h1 className="font-display text-2xl font-semibold text-text mb-2">Blocked Times</h1>
+        <p className="text-muted text-sm">Set regular commitments. StudyFlow will schedule your tasks around them automatically.</p>
       </header>
 
       {/* Add form */}
-      <section aria-labelledby="add-label" className="bg-card border border-border rounded-xl p-5 mb-8">
-        <h2 id="add-label" className="font-display text-base font-semibold text-text mb-4">
-          Block out a time
-        </h2>
-        <form onSubmit={handleAdd} noValidate className="space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="bl-label" className="block text-xs font-medium text-il">Label</label>
-            <input
-              id="bl-label"
-              type="text"
-              value={form.label}
-              onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))}
-              maxLength={40}
-              placeholder="e.g. Work, Football, Lectures"
-              className="w-full bg-navy3 border border-border text-text placeholder-dim rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors"
-            />
+      <section className="bg-navy3/30 border border-border rounded-xl p-6 mb-8 shadow-sm">
+        <h2 className="text-sm font-semibold text-text mb-5 flex items-center gap-2"><PlusIcon size={16} className="text-indigo" /> Add New Block</h2>
+        <form onSubmit={handleAdd} noValidate>
+          {renderForm(form, setForm, formError, false)}
+          <div className="mt-6 pt-5 border-t border-border flex justify-end">
+            <button type="submit" disabled={saving} className="flex items-center gap-2 bg-indigo hover:bg-indigo/90 text-white shadow-sm text-sm font-medium rounded-lg px-5 py-2.5 transition-all disabled:opacity-50">
+              {saving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "Save to Calendar"}
+            </button>
           </div>
-
-          <fieldset>
-            <legend className="text-xs font-medium text-il mb-2 block">
-              Days <span className="text-dim font-normal">(select one or more)</span>
-            </legend>
-            <div className="flex flex-wrap gap-2">
-              {DAYS_OF_WEEK.map((day) => (
-                <label
-                  key={day}
-                  className={`cursor-pointer px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
-                    form.days.includes(day)
-                      ? "bg-indigo/20 border-indigo text-il"
-                      : "border-border text-muted hover:border-indigo/50"
-                  }`}
-                >
-                  <input type="checkbox" checked={form.days.includes(day)} onChange={() => toggleDay(day)} className="sr-only" />
-                  {day}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <div className="grid grid-cols-2 gap-4">
-            <TimeInput id="bl-start" value={form.startHour} onChange={(v) => setForm((p) => ({ ...p, startHour: v }))} label="Start time" />
-            <TimeInput id="bl-end" value={form.endHour} onChange={(v) => setForm((p) => ({ ...p, endHour: v }))} label="End time" />
-          </div>
-
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <input type="checkbox" checked={form.repeatWeekly} onChange={(e) => setForm((p) => ({ ...p, repeatWeekly: e.target.checked }))} className="w-4 h-4 rounded accent-indigo" />
-            <span className="text-sm text-muted">Repeat every week</span>
-          </label>
-
-          {formError && <p role="alert" className="text-red text-xs">{formError}</p>}
-
-          <button type="submit" disabled={saving} className="flex items-center gap-2 bg-indigo hover:bg-il text-ink text-sm font-medium rounded-lg px-4 py-2.5 transition-colors disabled:opacity-50">
-            <PlusIcon size={14} />
-            {saving ? "Saving…" : "Add to calendar"}
-          </button>
         </form>
       </section>
 
       {/* Current blocked times */}
-      <section aria-labelledby="current-label">
-        <div className="flex items-center justify-between mb-3">
-          <h2 id="current-label" className="font-display text-base font-semibold text-text">
-            Current blocked times
-          </h2>
+      <section>
+        <div className="flex items-center justify-between mb-4 px-1">
+          <h2 className="text-sm font-semibold text-text">Active Blocks ({blocked.length})</h2>
           {blocked.length > 0 && (
-            <button
-              onClick={resetAllBlockedTimes}
-              disabled={resettingAll}
-              className="flex items-center gap-1.5 text-xs text-muted border border-border hover:text-text hover:border-indigo/50 rounded-lg px-3 py-1.5 transition-all disabled:opacity-50"
-            >
-              {resettingAll
-                ? <span className="w-3 h-3 border border-muted border-t-il rounded-full animate-spin" />
-                : <ResetIcon />}
-              Reset all
+            <button onClick={resetAllBlockedTimes} disabled={resettingAll} className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted hover:text-text transition-colors disabled:opacity-50">
+              {resettingAll ? "Resetting..." : <><ResetIcon size={14} /> Reset All Offsets</>}
             </button>
           )}
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center h-24">
-            <span className="w-5 h-5 border-2 border-border border-t-il rounded-full animate-spin" aria-label="Loading" />
-          </div>
+          <div className="flex items-center justify-center h-32"><span className="w-6 h-6 border-2 border-border border-t-indigo rounded-full animate-spin" /></div>
         ) : blocked.length === 0 ? (
-          <p className="text-muted text-sm text-center py-8">No blocked times yet. Add one above.</p>
+          <div className="text-center py-12 border border-dashed border-border rounded-xl bg-card">
+            <p className="text-muted text-sm">No blocked times yet. Use the form above to add one.</p>
+          </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-3">
             {blocked.map((bt) => (
-              <li key={bt.id}>
+              <li key={bt.id} className="bg-card border border-border rounded-xl shadow-sm overflow-hidden transition-all hover:border-indigo/30 group">
                 {editingId === bt.id ? (
-                  <div className="bg-amber/5 border border-amber/25 rounded-xl p-4 space-y-4">
-                    <h3 className="text-amber text-sm font-medium">Editing: {bt.label}</h3>
-
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-medium text-il">Label</label>
-                      <input
-                        type="text"
-                        value={editForm.label}
-                        onChange={(e) => setEditForm((p) => ({ ...p, label: e.target.value }))}
-                        maxLength={40}
-                        className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo transition-colors"
-                      />
-                    </div>
-
-                    <fieldset>
-                      <legend className="text-xs font-medium text-il mb-2 block">Days</legend>
-                      <div className="flex flex-wrap gap-2">
-                        {DAYS_OF_WEEK.map((day) => (
-                          <label
-                            key={day}
-                            className={`cursor-pointer px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
-                              editForm.days.includes(day)
-                                ? "bg-indigo/20 border-indigo text-il"
-                                : "border-border text-muted hover:border-indigo/50"
-                            }`}
-                          >
-                            <input type="checkbox" checked={editForm.days.includes(day)} onChange={() => toggleDay(day, true)} className="sr-only" />
-                            {day}
-                          </label>
-                        ))}
-                      </div>
-                    </fieldset>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <TimeInput id="edit-start" value={editForm.startHour} onChange={(v) => setEditForm((p) => ({ ...p, startHour: v }))} label="Start time" />
-                      <TimeInput id="edit-end" value={editForm.endHour} onChange={(v) => setEditForm((p) => ({ ...p, endHour: v }))} label="End time" />
-                    </div>
-
-                    <label className="flex items-center gap-2.5 cursor-pointer">
-                      <input type="checkbox" checked={editForm.repeatWeekly} onChange={(e) => setEditForm((p) => ({ ...p, repeatWeekly: e.target.checked }))} className="w-4 h-4 rounded accent-indigo" />
-                      <span className="text-sm text-muted">Repeat every week</span>
-                    </label>
-
-                    {editError && <p role="alert" className="text-red text-xs">{editError}</p>}
-
-                    <div className="flex gap-2">
-                      <button onClick={handleSaveEdit} className="flex items-center gap-1.5 bg-indigo hover:bg-il text-ink text-sm font-medium rounded-lg px-4 py-2 transition-colors">
-                        <CheckIcon size={13} />
-                        Save changes
-                      </button>
-                      <button onClick={() => setEditingId(null)} className="flex items-center gap-1.5 text-muted border border-border hover:border-indigo/50 text-sm rounded-lg px-4 py-2 transition-colors">
-                        <XIcon size={13} />
-                        Cancel
+                  <div className="p-6 bg-indigo/5 border-b border-indigo/10">
+                    <h3 className="text-indigo text-sm font-semibold mb-5 flex items-center gap-2"><PencilIcon size={16} /> Editing: {bt.label}</h3>
+                    {renderForm(editForm, setEditForm, editError, true)}
+                    <div className="mt-6 pt-5 border-t border-indigo/10 flex justify-end gap-3">
+                      <button onClick={() => setEditingId(null)} className="px-4 py-2 text-sm font-medium text-muted hover:bg-card hover:text-text border border-transparent hover:border-border rounded-lg transition-all">Cancel</button>
+                      <button onClick={handleSaveEdit} className="flex items-center gap-2 bg-indigo text-white px-5 py-2 text-sm font-medium rounded-lg shadow-sm hover:bg-indigo/90 transition-all">
+                        <CheckIcon size={14} /> Save Changes
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 bg-card border border-border hover:border-border/80 rounded-xl px-4 py-3 transition-all">
+                  <div className="flex items-center justify-between p-4 sm:p-5">
                     <div className="flex-1 min-w-0">
-                      <p className="text-text text-sm font-medium">
-                        {bt.label}
-                        {bt.repeat_weekly && <span className="ml-2 text-xs text-il font-normal">↻ weekly</span>}
-                      </p>
-                      <p className="text-dim text-xs mt-0.5">
-                        {bt.days.join(", ")} · {fmt24(bt.start_hour)} – {fmt24(bt.end_hour)}
+                      <div className="flex items-center gap-3 mb-1.5">
+                        <p className="text-text text-base font-semibold truncate">{bt.label}</p>
+                        {bt.repeat_weekly && <span className="text-[10px] uppercase tracking-wider font-bold bg-indigo/10 text-indigo px-2 py-0.5 rounded-md border border-indigo/20">Weekly</span>}
+                      </div>
+                      <p className="text-muted text-sm font-medium flex items-center gap-2">
+                        <span className="text-text">{bt.days.join(", ")}</span>
+                        <span className="text-border">•</span>
+                        {fmt24(bt.start_hour)} – {fmt24(bt.end_hour)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => resetBlockedTime(bt)}
-                        disabled={resettingId === bt.id}
-                        className="flex items-center gap-1 text-dim hover:text-muted text-xs border border-border hover:border-indigo/40 rounded-lg px-2.5 py-1.5 transition-all disabled:opacity-50"
-                        aria-label={`Reset ${bt.label} to original times`}
-                        title="Reset — removes any manually moved blocks for this rule"
-                      >
-                        {resettingId === bt.id
-                          ? <span className="w-3 h-3 border border-dim border-t-muted rounded-full animate-spin" />
-                          : <ResetIcon />}
-                        Reset
+                    
+                    <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => resetBlockedTime(bt)} disabled={resettingId === bt.id} className="p-2 text-dim hover:text-indigo hover:bg-indigo/10 rounded-lg transition-colors" title="Reset offsets">
+                        {resettingId === bt.id ? <span className="w-4 h-4 border-2 border-dim border-t-indigo rounded-full animate-spin" /> : <ResetIcon size={16} />}
                       </button>
-                      <button
-                        onClick={() => startEdit(bt)}
-                        className="flex items-center gap-1.5 text-il text-xs font-medium bg-indigo/15 border border-indigo/30 hover:bg-indigo/25 rounded-lg px-3 py-1.5 transition-all"
-                        aria-label={`Edit ${bt.label}`}
-                      >
-                        <PencilIcon size={13} />
-                        Edit
+                      <button onClick={() => startEdit(bt)} className="p-2 text-dim hover:text-indigo hover:bg-indigo/10 rounded-lg transition-colors" aria-label="Edit">
+                        <PencilIcon size={16} />
                       </button>
-                      <button
-                        onClick={() => handleDelete(bt.id, bt.label)}
-                        className="flex items-center justify-center w-8 h-8 text-red bg-red/10 border border-red/25 hover:bg-red/20 rounded-lg transition-all"
-                        aria-label={`Delete ${bt.label}`}
-                      >
-                        <TrashIcon size={13} />
+                      <button onClick={() => handleDelete(bt.id, bt.label)} className="p-2 text-dim hover:text-red hover:bg-red/10 rounded-lg transition-colors" aria-label="Delete">
+                        <TrashIcon size={16} />
                       </button>
                     </div>
                   </div>
@@ -431,13 +264,7 @@ export default function BlockedTimesPage() {
           </ul>
         )}
       </section>
-
-      {/* Toast */}
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-card border border-indigo text-text text-sm px-4 py-2.5 rounded-xl shadow-lg z-50 max-w-sm text-center" role="status" aria-live="polite">
-          {toast}
-        </div>
-      )}
+      {toast && <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-navy border border-border shadow-2xl text-text text-sm font-medium px-5 py-3 rounded-full z-50 animate-in fade-in slide-in-from-bottom-4">{toast}</div>}
     </div>
   );
 }
