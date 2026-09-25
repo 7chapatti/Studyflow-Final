@@ -60,7 +60,7 @@ export default function TasksPage() {
   ];
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <main className="max-w-2xl mx-auto px-4 py-8">
       <header className="flex items-center justify-between mb-6">
         <h1 className="font-display text-2xl font-semibold text-text">My tasks</h1>
         <Link
@@ -72,8 +72,7 @@ export default function TasksPage() {
         </Link>
       </header>
 
-      {/* Segmented Control */}
-      <div className="flex bg-navy3/50 rounded-lg p-1 mb-8 w-fit border border-border">
+      <nav aria-label="Filter assignments" className="flex bg-navy3/50 rounded-lg p-1 mb-8 w-fit border border-border">
         {filterTabs.map((tab) => (
           <button
             key={tab.value}
@@ -87,16 +86,16 @@ export default function TasksPage() {
             {tab.label}
           </button>
         ))}
-      </div>
+      </nav>
 
       {loading ? (
         <div className="flex items-center justify-center h-40">
           <span className="w-6 h-6 border-2 border-border border-t-indigo rounded-full animate-spin" aria-label="Loading" />
         </div>
       ) : error ? (
-        <div className="p-4 bg-red/10 border border-red/20 rounded-xl text-red text-sm">{error}</div>
+        <div className="p-4 bg-red/10 border border-red/20 rounded-xl text-red text-sm" role="alert">{error}</div>
       ) : assignments.length === 0 ? (
-        <div className="text-center py-16 bg-card border border-dashed border-border rounded-xl">
+        <section className="text-center py-16 bg-card border border-dashed border-border rounded-xl">
           <p className="text-muted text-sm mb-3">
             {filter === "active" ? "No active assignments yet." : filter === "complete" ? "No completed assignments yet." : "No archived assignments."}
           </p>
@@ -105,7 +104,7 @@ export default function TasksPage() {
               Add your first assignment →
             </Link>
           )}
-        </div>
+        </section>
       ) : (
         <ul className="space-y-4">
           {assignments.map((asgn) => {
@@ -124,43 +123,45 @@ export default function TasksPage() {
                   href={`/dashboard/assignment/${asgn.id}`}
                   className="block bg-card border border-border hover:border-indigo/40 hover:shadow-sm rounded-xl p-5 transition-all group relative overflow-hidden"
                 >
-                  <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: colour.border }} />
-                  <div className="pl-2">
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                      <div className="flex-1 min-w-0">
-                        <h2 className="text-text text-base font-semibold font-display truncate group-hover:text-indigo transition-colors">
-                          {asgn.name}
-                        </h2>
-                        <div className="flex items-center gap-4 mt-2 flex-wrap">
-                          <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
-                            <CalendarIcon size={13} /> {dueDate}
-                          </span>
-                          <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
-                            <ClockIcon size={13} /> ~{asgn.estimated_hours}h
-                          </span>
-                          {isOverdue && <span className="text-[11px] uppercase tracking-wider text-red font-bold bg-red/10 px-2 py-0.5 rounded-full">Overdue</span>}
-                          {isDueSoon && <span className="text-[11px] uppercase tracking-wider text-amber font-bold bg-amber/10 px-2 py-0.5 rounded-full">Due in {daysLeft === 0 ? "today" : `${daysLeft}d`}</span>}
+                  <article>
+                    <div className="absolute left-0 top-0 bottom-0 w-1.5" style={{ background: colour.border }} />
+                    <div className="pl-2">
+                      <header className="flex items-start justify-between gap-4 mb-4">
+                        <div className="flex-1 min-w-0">
+                          <h2 className="text-text text-base font-semibold font-display truncate group-hover:text-indigo transition-colors">
+                            {asgn.name}
+                          </h2>
+                          <div className="flex items-center gap-4 mt-2 flex-wrap">
+                            <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
+                              <CalendarIcon size={13} /> {dueDate}
+                            </span>
+                            <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
+                              <ClockIcon size={13} /> ~{asgn.estimated_hours}h
+                            </span>
+                            {isOverdue && <span className="text-[11px] uppercase tracking-wider text-red font-bold bg-red/10 px-2 py-0.5 rounded-full">Overdue</span>}
+                            {isDueSoon && <span className="text-[11px] uppercase tracking-wider text-amber font-bold bg-amber/10 px-2 py-0.5 rounded-full">Due in {daysLeft === 0 ? "today" : `${daysLeft}d`}</span>}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 text-muted group-hover:text-indigo transition-colors">
-                        <span className="text-sm font-medium">{progress}%</span>
-                        <ChevronRightIcon size={16} />
-                      </div>
-                    </div>
+                        <div className="flex items-center gap-2 shrink-0 text-muted group-hover:text-indigo transition-colors">
+                          <span className="text-sm font-medium">{progress}%</span>
+                          <ChevronRightIcon size={16} />
+                        </div>
+                      </header>
 
-                    <div className="h-2 bg-navy3/50 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progress}%`, background: colour.border }} />
+                      <div className="h-2 bg-navy3/50 rounded-full overflow-hidden" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progress}%`, background: colour.border }} />
+                      </div>
+                      <p className="text-dim text-xs mt-2 font-medium">
+                        {done} of {total} sections completed
+                      </p>
                     </div>
-                    <p className="text-dim text-xs mt-2 font-medium">
-                      {done} of {total} sections completed
-                    </p>
-                  </div>
+                  </article>
                 </Link>
               </li>
             );
           })}
         </ul>
       )}
-    </div>
+    </main>
   );
 }
