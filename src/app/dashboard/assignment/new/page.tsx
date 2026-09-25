@@ -34,8 +34,7 @@ export default function NewAssignmentPage() {
   const [description, setDescription] = useState("");
   const [name, setName] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [deadlineHour, setDeadlineHour] = useState("23");
-  const [deadlineMinute, setDeadlineMinute] = useState("59");
+  const [deadlineTime, setDeadlineTime] = useState("23:59");
   const [priority, setPriority] = useState<Priority>("normal");
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -47,6 +46,9 @@ export default function NewAssignmentPage() {
   const [limitInfo, setLimitInfo] = useState<{ allowed: boolean; current: number; limit: number } | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
+
+  // Split deadlineTime for desktop dropdowns
+  const [hour = "23", minute = "59"] = deadlineTime.split(":");
 
   useEffect(() => {
     fetch("/api/assignments/limit").then((res) => res.json()).then((json) => {
@@ -98,8 +100,7 @@ export default function NewAssignmentPage() {
       const { data: profile } = await supabase.from("profiles").select("timezone").eq("id", user.id).single();
       const userTimeZone = profile?.timezone ?? "Europe/London";
       
-      const deadlineTimeStr = `${deadlineHour}:${deadlineMinute}`;
-      const deadlineWithTime = toIsoWithTimezone(deadline, deadlineTimeStr, userTimeZone);
+      const deadlineWithTime = toIsoWithTimezone(deadline, deadlineTime, userTimeZone);
 
       const res = await fetch("/api/assignments", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -257,14 +258,27 @@ export default function NewAssignmentPage() {
                 <input id="deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} min={today} required className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors" />
               </div>
               
-              {/* Custom Clean Time Picker Dropdowns */}
+              {/* Responsive Time Picker: Native touch wheel on mobile, clean custom dropdowns on desktop */}
               <div>
                 <label className="block text-xs font-medium text-muted mb-1.5">Submission Time</label>
-                <div className="flex items-center gap-2">
+                
+                {/* Mobile View: Native time input */}
+                <div className="sm:hidden">
+                  <input
+                    id="deadline-time-mobile"
+                    type="time"
+                    value={deadlineTime}
+                    onChange={(e) => setDeadlineTime(e.target.value)}
+                    className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors"
+                  />
+                </div>
+
+                {/* Desktop View: Custom styled dropdowns */}
+                <div className="hidden sm:flex items-center gap-2">
                   <select
                     aria-label="Deadline Hour"
-                    value={deadlineHour}
-                    onChange={(e) => setDeadlineHour(e.target.value)}
+                    value={hour}
+                    onChange={(e) => setDeadlineTime(`${e.target.value}:${minute}`)}
                     className="flex-1 bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors cursor-pointer"
                   >
                     {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")).map((h) => (
@@ -274,8 +288,8 @@ export default function NewAssignmentPage() {
                   <span className="text-dim font-medium">:</span>
                   <select
                     aria-label="Deadline Minute"
-                    value={deadlineMinute}
-                    onChange={(e) => setDeadlineMinute(e.target.value)}
+                    value={minute}
+                    onChange={(e) => setDeadlineTime(`${hour}:${e.target.value}`)}
                     className="flex-1 bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors cursor-pointer"
                   >
                     {["00", "15", "30", "45"].map((m) => (
@@ -290,7 +304,7 @@ export default function NewAssignmentPage() {
               <span id="priority-label" className="block text-xs font-medium text-muted mb-2">Priority</span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {PRIORITY_OPTIONS.map((opt) => (
-                  <label key={opt.value} className={`flex items-center justify-center py-2.5 rounded-lg border text-sm font-medium cursor-pointer transition-all ${priority === opt.value ? `${opt.colour} bg-card shadow-sm` : "text-dim bg-navy3 border-border hover:bg-navy"}`}>
+                  <label key={opt.value} className={`flex items-center justify-center py-2.5 rounded-lg border text-sm font-medium cursor-pointer transition-all ${priority === opt.value ? `${opt.colour} bg-card shadow-sm` : "text-dim bg-navy3 border-border hover:border-border/80"}`}>
                     <input type="radio" name="priority" value={opt.value} checked={priority === opt.value} onChange={() => setPriority(opt.value)} className="sr-only" />
                     {opt.label}
                   </label>
