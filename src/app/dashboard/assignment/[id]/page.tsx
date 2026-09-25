@@ -8,7 +8,7 @@ import { toIsoWithTimezone } from "@/lib/datetime";
 import { UpdateAssignmentSchema } from "@/lib/validation";
 import type { Assignment, Task, ChecklistItem, PaceLog, Priority } from "@/types";
 import { COLOUR_PALETTE } from "@/types";
-import { ArchiveIcon, BrainIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ClockIcon, FlagIcon, PencilIcon, PlayIcon, XIcon } from "@/components/icons";
+import { ArchiveIcon, BrainIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ClockIcon, FlagIcon, PencilIcon, XIcon } from "@/components/icons";
 
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(value * 100);
@@ -79,30 +79,44 @@ export default function AssignmentPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  async function handleStartTask(task: Task) {
-    const supabase = createClient();
-    await supabase.from("tasks").update({ status: "in_progress", started_at: new Date().toISOString() }).eq("id", task.id);
-    setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: "in_progress", started_at: new Date().toISOString() } : t));
-  }
-
   async function handleToggleTask(task: Task) {
     const supabase = createClient();
     const isDone = task.status !== "done";
-    const now = new Date().toISOString();
-    const updates: Partial<Task> = { status: isDone ? "done" : "todo", completed_at: isDone ? now : null };
+    
+    let actualHours = task.estimated_hours;
+    if (isDone) {
+      // Clean native prompt to log actual study time for the Pace algorithm
+      const input = window.prompt(
+        `Great job finishing "${task.name}"!\n\nHow many hours did this actually take? (This helps StudyFlow adapt your future estimates)`,
+        task.estimated_hours.toString()
+      );
+      if (input === null) return; // User clicked Cancel
+      actualHours = Math.max(0.1, parseFloat(input) || task.estimated_hours);
+    }
 
-    if (isDone && task.started_at) {
-      const actualHours = (Date.now() - new Date(task.started_at).getTime()) / 3_600_000;
-      if (actualHours >= 0.1 && actualHours <= 24) {
-        updates.actual_hours = Math.round(actualHours * 100) / 100;
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) await supabase.from("pace_log").insert({ user_id: user.id, task_id: task.id, estimated_hours: task.estimated_hours, actual_hours: actualHours });
+    const now = new Date().toISOString();
+    const updates: Partial<Task> = { 
+      status: isDone ? "done" : "todo", 
+      completed_at: isDone ? now : null,
+      actual_hours: isDone ? actualHours : null 
+    };
+
+    if (isDone) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("pace_log").insert({ 
+          user_id: user.id, 
+          task_id: task.id, 
+          estimated_hours: task.estimated_hours, 
+          actual_hours: actualHours 
+        });
       }
     }
 
     await supabase.from("tasks").update(updates).eq("id", task.id);
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, ...updates } : t)));
     
+    // Auto-complete assignment if all tasks are done
     const allDone = tasks.map((t) => t.id === task.id ? { ...t, ...updates } : t).every((t) => t.status === "done");
     if (allDone && isDone) {
       await supabase.from("assignments").update({ status: "complete" }).eq("id", id);
@@ -117,9 +131,19 @@ export default function AssignmentPage() {
   }
 
   async function handleArchive() {
-    if (!confirm("Archive this assignment? It won't count toward your active limit.")) return;
+    if (!confirm("Remove this assignment? It will be hidden from your dashboard and any uncompleted study blocks will be scrubbed from your calendar.")) return;
+    
     const supabase = createClient();
+    
+    // 1. Mark assignment as archived
     await supabase.from("assignments").update({ status: "archived", archived_at: new Date().toISOString() }).eq("id", id);
+    
+    // 2. Wipe all scheduled blocks linked to this assignment's tasks off the calendar
+    const taskIds = tasks.map(t => t.id);
+    if (taskIds.length > 0) {
+      await supabase.from("scheduled_blocks").delete().in("task_id", taskIds);
+    }
+    
     router.push("/dashboard");
   }
 
@@ -280,14 +304,13 @@ export default function AssignmentPage() {
           <ul className="space-y-3">
             {tasks.map((task) => (
               <li key={task.id}>
-                <article className={`flex items-start gap-4 bg-card border rounded-xl p-4 transition-all ${task.status === "done" ? "border-border/50 opacity-60 bg-navy3/30" : task.status === "in_progress" ? "border-amber/40 shadow-sm ring-1 ring-amber/10" : "border-border shadow-sm hover:border-indigo/40"}`}>
+                <article className={`flex items-start gap-4 bg-card border rounded-xl p-4 transition-all ${task.status === "done" ? "border-border/50 opacity-60 bg-navy3/30" : "border-border shadow-sm hover:border-indigo/40"}`}>
                   <button onClick={() => handleToggleTask(task)} aria-label={task.status === "done" ? "Mark incomplete" : "Mark complete"} className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${task.status === "done" ? "bg-green border-green text-navy" : "border-border hover:border-indigo bg-card"}`}>
                     {task.status === "done" && <CheckIcon size={12} />}
                   </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <h3 className={`text-sm font-semibold ${task.status === "done" ? "line-through text-dim" : "text-text"}`}>{task.name}</h3>
-                      {task.status === "in_progress" && <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber/10 text-amber font-bold border border-amber/20">Working</span>}
                     </div>
                     {task.description && <p className="text-muted text-xs leading-relaxed mb-2">{task.description}</p>}
                     <div className="flex items-center gap-4 flex-wrap">
@@ -296,11 +319,6 @@ export default function AssignmentPage() {
                       {task.confidence_score != null && <ConfidenceBar value={task.confidence_score} />}
                     </div>
                   </div>
-                  {task.status === "todo" && (
-                    <button onClick={() => handleStartTask(task)} aria-label={`Start task: ${task.name}`} className="flex flex-col items-center justify-center gap-1 text-[10px] uppercase tracking-wider font-bold text-indigo bg-indigo/10 hover:bg-indigo/20 border border-indigo/20 rounded-lg w-12 h-12 transition-all shrink-0">
-                      <PlayIcon size={14} /> Start
-                    </button>
-                  )}
                 </article>
               </li>
             ))}
@@ -336,8 +354,8 @@ export default function AssignmentPage() {
           </div>
 
           {assignment.status !== "archived" && (
-            <button onClick={handleArchive} className="w-full mt-6 flex items-center justify-center gap-2 text-dim hover:text-text hover:bg-navy3 border border-transparent hover:border-border text-sm font-medium rounded-lg py-2 transition-all">
-              <ArchiveIcon size={14} /> Archive Assignment
+            <button onClick={handleArchive} className="w-full mt-6 flex items-center justify-center gap-2 text-red/80 hover:text-red hover:bg-red/10 border border-transparent hover:border-red/20 text-sm font-medium rounded-lg py-2 transition-all">
+              <ArchiveIcon size={14} /> Remove & clear calendar
             </button>
           )}
         </section>
