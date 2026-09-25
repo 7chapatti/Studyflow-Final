@@ -8,18 +8,18 @@ import type { AIAnalysisResult, Priority } from "@/types";
 import { CheckIcon, FileIcon, SparklesIcon, UploadIcon, XIcon } from "@/components/icons";
 
 const PRIORITY_OPTIONS: { value: Priority; label: string; colour: string }[] = [
-  { value: "low",    label: "Low",    colour: "text-dim border-border" },
-  { value: "normal", label: "Normal", colour: "text-muted border-border" },
-  { value: "high",   label: "High",   colour: "text-amber border-amber/40" },
-  { value: "urgent", label: "Urgent", colour: "text-red border-red/40" },
+  { value: "low",    label: "Low",    colour: "text-dim border-border hover:border-dim" },
+  { value: "normal", label: "Normal", colour: "text-muted border-border hover:border-muted" },
+  { value: "high",   label: "High",   colour: "text-amber border-amber/40 hover:border-amber/80" },
+  { value: "urgent", label: "Urgent", colour: "text-red border-red/40 hover:border-red/80" },
 ];
 
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(value * 100);
   const colour = pct >= 80 ? "bg-green" : pct >= 60 ? "bg-amber" : "bg-red";
   return (
-    <span className="flex items-center gap-1.5 shrink-0" title={`Confidence: ${pct}%`}>
-      <span className="text-xs text-dim">{pct}%</span>
+    <span className="flex items-center gap-2 shrink-0" title={`Confidence: ${pct}%`}>
+      <span className="text-[11px] font-medium text-dim w-6 text-right">{pct}%</span>
       <span className="w-12 h-1.5 bg-border rounded-full overflow-hidden" role="meter" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
         <span className={`block h-full rounded-full ${colour}`} style={{ width: `${pct}%` }} />
       </span>
@@ -48,29 +48,15 @@ export default function NewAssignmentPage() {
   const today = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
-    fetch("/api/assignments/limit")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) setLimitInfo(json.data);
-      })
-      .catch(() => {
-      });
+    fetch("/api/assignments/limit").then((res) => res.json()).then((json) => {
+      if (json.success) setLimitInfo(json.data);
+    }).catch(() => {});
   }, []);
 
   function addFiles(incoming: FileList | null) {
     if (!incoming) return;
-    const allowed = [
-      "application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "text/plain",
-      "image/png",
-      "image/jpeg",
-      "image/webp",
-    ];
-    const valid = Array.from(incoming).filter(
-      (f) => allowed.includes(f.type) && f.size <= 50 * 1024 * 1024
-    );
+    const allowed = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "text/plain", "image/png", "image/jpeg", "image/webp"];
+    const valid = Array.from(incoming).filter((f) => allowed.includes(f.type) && f.size <= 50 * 1024 * 1024);
     setFiles((prev) => {
       const names = new Set(prev.map((f) => f.name));
       return [...prev, ...valid.filter((f) => !names.has(f.name))];
@@ -78,23 +64,12 @@ export default function NewAssignmentPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  function removeFile(index: number) {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    setIsDragging(false);
-    addFiles(e.dataTransfer.files);
-  }
+  function removeFile(index: number) { setFiles((prev) => prev.filter((_, i) => i !== index)); }
+  function handleDrop(e: React.DragEvent) { e.preventDefault(); setIsDragging(false); addFiles(e.dataTransfer.files); }
 
   async function handleAnalyse() {
-    if (!description.trim() && files.length === 0) {
-      setAiError("Add a description or upload a file first.");
-      return;
-    }
-    setAiError("");
-    setAnalysing(true);
+    if (!description.trim() && files.length === 0) { setAiError("Add a description or upload a file first."); return; }
+    setAiError(""); setAnalysing(true);
     try {
       const formData = new FormData();
       formData.append("description", description);
@@ -103,11 +78,8 @@ export default function NewAssignmentPage() {
       const json = await res.json();
       if (!res.ok) { setAiError(json.error ?? "Analysis failed."); return; }
       setAiResult(json.data as AIAnalysisResult);
-    } catch {
-      setAiError("Something went wrong. Check your connection and try again.");
-    } finally {
-      setAnalysing(false);
-    }
+    } catch { setAiError("Something went wrong. Check your connection and try again."); } 
+    finally { setAnalysing(false); }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -122,324 +94,167 @@ export default function NewAssignmentPage() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
-
-      const { data: profile } = await supabase
-        .from("profiles").select("timezone").eq("id", user.id).single();
+      const { data: profile } = await supabase.from("profiles").select("timezone").eq("id", user.id).single();
       const userTimeZone = profile?.timezone ?? "Europe/London";
       const deadlineWithTime = toIsoWithTimezone(deadline, deadlineTime, userTimeZone);
 
       const res = await fetch("/api/assignments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          description: description.trim() || undefined,
-          deadline: deadlineWithTime,
-          priority,
-          sections: aiResult.sections,
-          checklist: aiResult.checklist ?? [],
-        }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), description: description.trim() || undefined, deadline: deadlineWithTime, priority, sections: aiResult.sections, checklist: aiResult.checklist ?? [] }),
       });
       const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        setFormError(json.error ?? "Failed to create assignment. Please try again.");
-        setSubmitting(false);
-        return;
-      }
+      if (!res.ok || !json.success) { setFormError(json.error ?? "Failed to create assignment."); setSubmitting(false); return; }
 
       const assignmentId = json.data.id as string;
-
-      await fetch("/api/schedule/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignmentId }),
-      });
-
+      await fetch("/api/schedule/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assignmentId }) });
       router.push(`/dashboard/assignment/${assignmentId}`);
-    } catch {
-      setFormError("Something went wrong. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
+    } catch { setFormError("Something went wrong. Please try again."); } 
+    finally { setSubmitting(false); }
   }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <header className="mb-8">
-        <h1 className="font-display text-2xl font-semibold text-text mb-1">New assignment</h1>
-        <p className="text-muted text-sm">
-          Describe your assignment and let StudyFlow build a plan around your schedule.
-        </p>
+      <header className="mb-8 border-b border-border pb-6">
+        <h1 className="font-display text-2xl font-semibold text-text mb-2">New assignment</h1>
+        <p className="text-muted text-sm">Upload your brief and let AI build a study plan around your schedule.</p>
       </header>
 
       {limitInfo && !limitInfo.allowed && (
-        <div className="bg-amber/10 border border-amber/25 rounded-xl px-4 py-3 mb-6 text-sm">
-          <p className="text-text font-medium">
-            You&apos;re at your plan&apos;s active assignment limit ({limitInfo.current}/{limitInfo.limit}).
-          </p>
-          <p className="text-muted text-xs mt-0.5">
-            Archive an existing assignment, or{" "}
-            <a href="/upgrade" className="text-il hover:underline">upgrade your plan</a>{" "}
-            to add more.
-          </p>
+        <div className="bg-amber/10 border border-amber/25 rounded-xl px-4 py-3 mb-8 text-sm">
+          <p className="text-text font-medium">You&apos;re at your plan&apos;s active assignment limit ({limitInfo.current}/{limitInfo.limit}).</p>
+          <p className="text-muted text-xs mt-0.5">Archive an existing assignment, or <a href="/upgrade" className="text-indigo hover:underline font-medium">upgrade your plan</a> to add more.</p>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} noValidate className="space-y-6">
-        {/* File upload */}
-        <section aria-labelledby="upload-heading">
-          <h2 id="upload-heading" className="text-xs font-medium text-il mb-2">
-            Upload brief{" "}
-            <span className="text-dim font-normal">(optional — PDF, DOCX, PPTX, TXT, image)</span>
-          </h2>
+      <form onSubmit={handleSubmit} noValidate className="space-y-8">
+        
+        {/* Step 1: Upload & Analyse */}
+        <section className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <h2 className="text-sm font-semibold text-text">1. Provide the brief</h2>
+            {aiResult && <span className="text-xs font-medium text-green bg-green/10 px-2 py-0.5 rounded-full">Analysed</span>}
+          </div>
+
           <div
-            role="button"
-            tabIndex={0}
-            aria-label="Upload brief files — click or drop files here"
             onClick={() => fileInputRef.current?.click()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                fileInputRef.current?.click();
-              }
-            }}
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
-              isDragging || files.length > 0
-                ? "border-indigo bg-indigo/5"
-                : "border-border hover:border-indigo/50 hover:bg-indigo/[0.02]"
+            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+              isDragging || files.length > 0 ? "border-indigo bg-indigo/5" : "border-border hover:border-indigo/40 hover:bg-navy3/30"
             }`}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.webp"
-              className="sr-only"
-              onChange={(e) => addFiles(e.target.files)}
-              aria-hidden="true"
-            />
-            <p className="text-il mb-3 flex justify-center"><UploadIcon /></p>
-            <p className="text-text text-sm font-medium mb-1">
-              {files.length > 0
-                ? `${files.length} file${files.length > 1 ? "s" : ""} selected — click to add more`
-                : "Drop your brief here"}
-            </p>
-            <p className="text-dim text-xs">or click anywhere in this box to browse</p>
+            <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.webp" className="sr-only" onChange={(e) => addFiles(e.target.files)} aria-hidden="true" />
+            <div className="text-indigo mb-3 flex justify-center"><UploadIcon /></div>
+            <p className="text-text text-sm font-medium mb-1">{files.length > 0 ? `${files.length} file${files.length > 1 ? "s" : ""} selected` : "Drop your brief here"}</p>
+            <p className="text-dim text-xs">or click anywhere to browse</p>
           </div>
 
           {files.length > 0 && (
-            <ul className="mt-2 space-y-1.5" aria-label="Selected files">
+            <ul className="space-y-2">
               {files.map((file, i) => (
-                <li key={file.name} className="flex items-center gap-2 bg-card border border-border rounded-lg px-3 py-2">
-                  <span className="text-il shrink-0"><FileIcon /></span>
-                  <span className="flex-1 truncate text-sm text-muted">{file.name}</span>
+                <li key={file.name} className="flex items-center gap-3 bg-navy3/50 border border-border rounded-lg px-3 py-2">
+                  <FileIcon className="text-indigo shrink-0" />
+                  <span className="flex-1 truncate text-sm text-text font-medium">{file.name}</span>
                   <span className="text-dim text-xs shrink-0">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(i)}
-                    className="text-dim hover:text-red transition-colors shrink-0 p-0.5 rounded"
-                    aria-label={`Remove ${file.name}`}
-                  >
-                    <XIcon />
-                  </button>
+                  <button type="button" onClick={() => removeFile(i)} className="text-dim hover:text-red transition-colors shrink-0 p-1"><XIcon /></button>
                 </li>
               ))}
             </ul>
           )}
+
+          <div>
+            <label htmlFor="description" className="block text-xs font-medium text-muted mb-1.5">Additional Context (Optional)</label>
+            <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={5000} className="w-full bg-card border border-border text-text placeholder-dim rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors resize-none" placeholder="e.g. 'Only focus on Part A', or paste the brief directly here..." />
+          </div>
+
+          <div className="pt-2">
+            <button type="button" onClick={handleAnalyse} disabled={analysing || (!description.trim() && files.length === 0)} className="w-full flex items-center justify-center gap-2 bg-navy3 border border-border hover:bg-navy hover:text-text text-muted font-medium rounded-lg px-4 py-2.5 text-sm transition-all disabled:opacity-50">
+              {analysing ? <span className="w-4 h-4 border-2 border-muted border-t-text rounded-full animate-spin" /> : <SparklesIcon />}
+              {aiResult ? "Re-analyse brief" : "Analyse brief"}
+            </button>
+            {aiError && <p className="text-red text-xs mt-2 text-center">{aiError}</p>}
+          </div>
         </section>
 
-        {/* Description */}
-        <section aria-labelledby="desc-heading">
-          <label id="desc-heading" htmlFor="description" className="block text-xs font-medium text-il mb-1.5">
-            Assignment description
-          </label>
-          <textarea
-            id="description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            maxLength={5000}
-            className="w-full bg-navy3 border border-border text-text placeholder-dim rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors resize-none leading-relaxed"
-            placeholder="Describe what this assignment involves..."
-          />
-          <p className="text-right text-xs text-dim mt-1" aria-live="polite">
-            {description.length} / 5000
-          </p>
-        </section>
-
-        {/* Analyse button */}
-        <div>
-          <button
-            type="button"
-            onClick={handleAnalyse}
-            disabled={analysing || (!description.trim() && files.length === 0)}
-            className="flex items-center gap-2 bg-indigo/15 border border-indigo/30 hover:bg-indigo/25 text-il font-medium rounded-lg px-4 py-2.5 text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {analysing ? (
-              <>
-                <span className="w-3.5 h-3.5 border-2 border-il/30 border-t-il rounded-full animate-spin" aria-hidden="true" />
-                Analysing…
-              </>
-            ) : (
-              <>
-                <SparklesIcon />
-                {aiResult ? "Re-analyse" : "Analyse brief"}
-              </>
-            )}
-          </button>
-          {aiError && <p role="alert" className="text-red text-xs mt-2">{aiError}</p>}
-        </div>
-
-        {/* AI result */}
+        {/* Step 2: AI Result Receipt */}
         {aiResult && (
-          <section aria-labelledby="ai-heading" className="bg-indigo/[0.07] border border-indigo/20 rounded-xl p-5 space-y-4">
-            <h2 id="ai-heading" className="flex items-center gap-2 text-il text-sm font-medium">
-              <SparklesIcon />
-              AI breakdown
-            </h2>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <section className="bg-indigo/5 border border-indigo/20 rounded-xl overflow-hidden shadow-sm animate-in fade-in slide-in-from-top-2">
+            <div className="bg-indigo/10 px-5 py-3 border-b border-indigo/10 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-indigo text-sm font-semibold"><SparklesIcon /> AI Breakdown</h2>
+              <span className="text-indigo text-xs font-medium">~{aiResult.estimatedHours}h Total</span>
+            </div>
+            
+            <div className="p-5 space-y-6">
+              {aiResult.estimateAdjustment && (
+                <p className="text-indigo/80 text-xs bg-indigo/5 p-3 rounded-lg border border-indigo/10">
+                  Adjusted from initial ~{aiResult.estimateAdjustment.originalAiHours}h estimate based on {aiResult.estimateAdjustment.detail}.
+                </p>
+              )}
+
               <div>
-                <dt className="text-dim text-xs">Total estimate</dt>
-                <dd className="text-text font-medium">~{aiResult.estimatedHours}h</dd>
-              </div>
-              <div>
-                <dt className="text-dim text-xs">Sections</dt>
-                <dd className="text-text font-medium">{aiResult.sections.length}</dd>
-              </div>
-            </dl>
-
-            {/* Shown only when the deterministic word/question-count check
-                disagreed with the AI's own total by enough to rescale it --
-                most analyses won't show this. Transparent about what
-                happened rather than silently swapping the number. */}
-            {aiResult.estimateAdjustment && (
-              <p className="text-dim text-xs -mt-1">
-                Adjusted from the AI&rsquo;s initial ~{aiResult.estimateAdjustment.originalAiHours}h
-                estimate based on {aiResult.estimateAdjustment.detail}.
-              </p>
-            )}
-
-            <section aria-labelledby="sections-heading">
-              <h3 id="sections-heading" className="text-xs text-dim font-medium mb-2">
-                Proposed sections
-              </h3>
-              <ul className="space-y-2">
-                {/* aiResult is swapped as a whole on every re-analysis (never
-                    spliced in place), so a plain index key would have been
-                    safe here too -- this just avoids the code-smell. */}
-                {aiResult.sections.map((section, i) => (
-                  <li key={`${section.name}-${i}`} className="flex items-start justify-between gap-3 py-2 border-b border-indigo/10 last:border-0">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-text text-sm font-medium leading-snug">{section.name}</p>
-                      {section.description && (
-                        <p className="text-dim text-xs mt-0.5 leading-relaxed">{section.description}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-muted text-xs">~{section.hours}h</span>
-                      {section.confidence != null && <ConfidenceBar value={section.confidence} />}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            {aiResult.checklist && aiResult.checklist.length > 0 && (
-              <section aria-labelledby="checklist-heading">
-                <h3 id="checklist-heading" className="text-xs text-dim font-medium mb-2">
-                  Requirements found ({aiResult.checklist.length})
-                </h3>
-                <ul className="space-y-1.5">
-                  {aiResult.checklist.map((item, i) => (
-                    <li key={`${item.label}-${i}`} className="flex items-start gap-2 text-xs text-muted">
-                      <span className="text-green mt-0.5 shrink-0"><CheckIcon /></span>
-                      <span>{item.label}</span>
+                <h3 className="text-xs uppercase tracking-wider text-muted font-semibold mb-3">Proposed Sections ({aiResult.sections.length})</h3>
+                <ul className="space-y-3">
+                  {aiResult.sections.map((section, i) => (
+                    <li key={i} className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 p-3 bg-card border border-border rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-text text-sm font-medium">{section.name}</p>
+                        {section.description && <p className="text-dim text-xs mt-1 leading-relaxed">{section.description}</p>}
+                      </div>
+                      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 shrink-0">
+                        <span className="text-text text-sm font-medium bg-navy3 px-2 py-0.5 rounded-md border border-border">~{section.hours}h</span>
+                        {section.confidence != null && <ConfidenceBar value={section.confidence} />}
+                      </div>
                     </li>
                   ))}
                 </ul>
-              </section>
-            )}
+              </div>
+
+              {aiResult.checklist && aiResult.checklist.length > 0 && (
+                <div>
+                  <h3 className="text-xs uppercase tracking-wider text-muted font-semibold mb-3">Requirements Found</h3>
+                  <ul className="grid sm:grid-cols-2 gap-2">
+                    {aiResult.checklist.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-text bg-card border border-border p-2.5 rounded-lg">
+                        <span className="text-green shrink-0 mt-0.5"><CheckIcon /></span>
+                        <span className="leading-snug">{item.label}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           </section>
         )}
 
-        {/* Assignment details */}
-        <section aria-labelledby="details-heading" className="space-y-4">
-          <h2 id="details-heading" className="text-xs font-medium text-il">
-            Assignment details
-          </h2>
-
-          {/* Name */}
-          <div className="space-y-1.5">
-            <label htmlFor="name" className="block text-xs font-medium text-il">
-              Assignment name
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={200}
-              required
-              className="w-full bg-navy3 border border-border text-text placeholder-dim rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors"
-              placeholder="Give your assignment a name"
-            />
+        {/* Step 3: Final Details */}
+        <section className={`bg-card border border-border rounded-xl p-5 shadow-sm space-y-5 transition-opacity duration-300 ${aiResult ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+          <div className="border-b border-border pb-3">
+            <h2 className="text-sm font-semibold text-text">2. Schedule details</h2>
           </div>
 
-          {/* Deadline date + time side by side */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label htmlFor="deadline" className="block text-xs font-medium text-il">
-                Deadline date
-              </label>
-              <input
-                id="deadline"
-                type="date"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-                min={today}
-                required
-                className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors"
-              />
+          <div>
+            <label htmlFor="name" className="block text-xs font-medium text-muted mb-1.5">Assignment Name</label>
+            <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} required className="w-full bg-navy3 border border-border text-text placeholder-dim rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-indigo transition-colors" placeholder="e.g. History Midterm Essay" />
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-5">
+            <div>
+              <label htmlFor="deadline" className="block text-xs font-medium text-muted mb-1.5">Deadline Date</label>
+              <input id="deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} min={today} required className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors" />
             </div>
-            <div className="space-y-1.5">
-              <label htmlFor="deadline-time" className="block text-xs font-medium text-il">
-                Submission time
-              </label>
-              <input
-                id="deadline-time"
-                type="time"
-                value={deadlineTime}
-                onChange={(e) => setDeadlineTime(e.target.value)}
-                className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors"
-              />
+            <div>
+              <label htmlFor="deadline-time" className="block text-xs font-medium text-muted mb-1.5">Time</label>
+              <input id="deadline-time" type="time" value={deadlineTime} onChange={(e) => setDeadlineTime(e.target.value)} className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors" />
             </div>
           </div>
 
-          {/* Priority */}
-          <fieldset className="space-y-1.5">
-            <legend className="text-xs font-medium text-il">Priority</legend>
-            <div className="grid grid-cols-4 gap-1.5">
+          <fieldset>
+            <legend className="text-xs font-medium text-muted mb-2">Priority</legend>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {PRIORITY_OPTIONS.map((opt) => (
-                <label
-                  key={opt.value}
-                  className={`flex items-center justify-center py-2 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
-                    priority === opt.value
-                      ? `${opt.colour} bg-indigo/10`
-                      : "text-dim border-border hover:border-border/80"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="priority"
-                    value={opt.value}
-                    checked={priority === opt.value}
-                    onChange={() => setPriority(opt.value)}
-                    className="sr-only"
-                  />
+                <label key={opt.value} className={`flex items-center justify-center py-2.5 rounded-lg border text-sm font-medium cursor-pointer transition-all ${priority === opt.value ? `${opt.colour} bg-card shadow-sm` : "text-dim bg-navy3 border-border hover:bg-navy"}`}>
+                  <input type="radio" name="priority" value={opt.value} checked={priority === opt.value} onChange={() => setPriority(opt.value)} className="sr-only" />
                   {opt.label}
                 </label>
               ))}
@@ -447,18 +262,11 @@ export default function NewAssignmentPage() {
           </fieldset>
         </section>
 
-        {formError && (
-          <p role="alert" className="text-red text-sm bg-red/10 border border-red/20 rounded-lg px-4 py-3">
-            {formError}
-          </p>
-        )}
+        {formError && <div className="bg-red/10 border border-red/20 rounded-xl px-4 py-3 text-red text-sm font-medium text-center">{formError}</div>}
 
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full bg-indigo hover:bg-il text-ink font-medium rounded-lg py-3 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? "Creating plan…" : "Create plan"}
+        <button type="submit" disabled={submitting || !aiResult} className="w-full flex items-center justify-center gap-2 bg-indigo hover:bg-indigo/90 text-white font-semibold rounded-xl py-3.5 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          {submitting && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          {submitting ? "Generating Schedule..." : "Create Study Plan"}
         </button>
       </form>
     </div>
