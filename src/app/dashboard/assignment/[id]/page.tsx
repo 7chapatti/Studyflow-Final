@@ -34,7 +34,7 @@ function PriorityBadge({ priority }: { priority: string }) {
 
 function CategoryLabel({ category }: { category: string }) {
   const labels: Record<string, string> = { word_limit: "Word limit", references: "References", formatting: "Formatting", sections: "Sections", submission: "Submission", other: "Other" };
-  return <span className="text-[11px] uppercase tracking-wider text-muted font-bold">{labels[category] ?? category}</span>;
+  return <h3 className="text-[11px] uppercase tracking-wider text-muted font-bold">{labels[category] ?? category}</h3>;
 }
 
 export default function AssignmentPage() {
@@ -165,39 +165,38 @@ export default function AssignmentPage() {
   }, {});
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <main className="max-w-3xl mx-auto px-4 py-8">
       <button onClick={() => router.back()} className="flex items-center gap-1.5 text-muted hover:text-text text-sm font-medium transition-colors mb-6">
         <ChevronLeftIcon /> Back
       </button>
 
-      {/* ── HEADER CARD ──────────────────────────────────────────────────────── */}
       <header className="bg-card border border-border rounded-xl shadow-sm mb-6 overflow-hidden relative">
         <div className="absolute left-0 top-0 bottom-0 w-2" style={{ background: colour.border }} />
         
         {editing ? (
-          <div className="p-6 pl-8 space-y-5 animate-in fade-in">
-            <h2 className="text-sm font-semibold text-text border-b border-border pb-2">Edit Assignment</h2>
+          <fieldset className="p-6 pl-8 space-y-5 animate-in fade-in">
+            <legend className="text-sm font-semibold text-text border-b border-border pb-2 block w-full">Edit Assignment</legend>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-muted mb-1.5">Name</label>
-                <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-navy3 border border-border rounded-lg px-3 py-2 text-text text-sm focus:border-indigo" />
+                <label className="block text-xs font-medium text-muted mb-1.5" htmlFor="edit-name">Name</label>
+                <input id="edit-name" type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className="w-full bg-navy3 border border-border rounded-lg px-3 py-2 text-text text-sm focus:border-indigo" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted mb-1.5">Description</label>
-                <textarea value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={3} className="w-full bg-navy3 border border-border rounded-lg px-3 py-2 text-text text-sm focus:border-indigo resize-none" />
+                <label className="block text-xs font-medium text-muted mb-1.5" htmlFor="edit-desc">Description</label>
+                <textarea id="edit-desc" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} rows={3} className="w-full bg-navy3 border border-border rounded-lg px-3 py-2 text-text text-sm focus:border-indigo resize-none" />
               </div>
               <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-1">
-                  <label className="block text-xs font-medium text-muted mb-1.5">Date</label>
-                  <input type="date" value={editDeadlineDate} onChange={(e) => setEditDeadlineDate(e.target.value)} className="w-full bg-navy3 border border-border rounded-lg px-3 py-2 text-text text-sm focus:border-indigo" />
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1.5" htmlFor="edit-date">Date</label>
+                  <input id="edit-date" type="date" value={editDeadlineDate} onChange={(e) => setEditDeadlineDate(e.target.value)} className="w-full bg-navy3 border border-border rounded-lg px-3 py-2 text-text text-sm focus:border-indigo" />
                 </div>
-                <div className="col-span-1">
-                  <label className="block text-xs font-medium text-muted mb-1.5">Time</label>
-                  <input type="time" value={editDeadlineTime} onChange={(e) => setEditDeadlineTime(e.target.value)} className="w-full bg-navy3 border border-border rounded-lg px-3 py-2 text-text text-sm focus:border-indigo" />
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1.5" htmlFor="edit-time">Time</label>
+                  <input id="edit-time" type="time" value={editDeadlineTime} onChange={(e) => setEditDeadlineTime(e.target.value)} className="w-full bg-navy3 border border-border rounded-lg px-3 py-2 text-text text-sm focus:border-indigo" />
                 </div>
-                <div className="col-span-1">
-                  <label className="block text-xs font-medium text-muted mb-1.5">Priority</label>
-                  <select value={editPriority} onChange={(e) => setEditPriority(e.target.value as Priority)} className="w-full bg-navy3 border border-border rounded-lg px-3 py-2 text-text text-sm focus:border-indigo">
+                <div>
+                  <label className="block text-xs font-medium text-muted mb-1.5" htmlFor="edit-priority">Priority</label>
+                  <select id="edit-priority" value={editPriority} onChange={(e) => setEditPriority(e.target.value as Priority)} className="w-full bg-navy3 border border-border rounded-lg px-3 py-2 text-text text-sm focus:border-indigo">
                     <option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option>
                   </select>
                 </div>
@@ -213,7 +212,7 @@ export default function AssignmentPage() {
               </button>
             </div>
             <p className="text-dim text-xs text-center mt-2">Note: Organise the calendar manually after changing deadlines.</p>
-          </div>
+          </fieldset>
         ) : (
           <div className="p-6 pl-8">
             <div className="flex items-start justify-between gap-4 mb-4">
@@ -231,21 +230,22 @@ export default function AssignmentPage() {
               )}
             </div>
 
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted font-medium bg-navy3/30 border border-border/50 rounded-lg p-3 mb-5">
-              <span className="flex items-center gap-2"><CalendarIcon size={14} className="text-dim" /> {dueDate}</span>
-              <span className="flex items-center gap-2"><ClockIcon size={14} className="text-dim" /> ~{assignment.estimated_hours}h est.</span>
-              <span className="flex items-center gap-2">
+            <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted font-medium bg-navy3/30 border border-border/50 rounded-lg p-3 mb-5">
+              <div className="flex items-center gap-2"><CalendarIcon size={14} className="text-dim" /> <dt className="sr-only">Due Date</dt><dd>{dueDate}</dd></div>
+              <div className="flex items-center gap-2"><ClockIcon size={14} className="text-dim" /> <dt className="sr-only">Estimated Time</dt><dd>~{assignment.estimated_hours}h est.</dd></div>
+              <div className="flex items-center gap-2">
                 <FlagIcon size={14} className={daysLeft <= 3 ? "text-amber" : "text-dim"} /> 
-                {daysLeft > 0 ? `${daysLeft} days left` : daysLeft === 0 ? "Due today" : `${Math.abs(daysLeft)} days overdue`}
-              </span>
-            </div>
+                <dt className="sr-only">Time Left</dt>
+                <dd>{daysLeft > 0 ? `${daysLeft} days left` : daysLeft === 0 ? "Due today" : `${Math.abs(daysLeft)} days overdue`}</dd>
+              </div>
+            </dl>
 
             <div>
               <div className="flex justify-between text-xs font-semibold uppercase tracking-wider text-muted mb-2">
                 <span>Progress ({doneTasks}/{tasks.length})</span>
                 <span className={progress === 100 ? "text-green" : ""}>{progress}%</span>
               </div>
-              <div className="h-2 bg-navy3 rounded-full overflow-hidden border border-border/50">
+              <div className="h-2 bg-navy3 rounded-full overflow-hidden border border-border/50" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
                 <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%`, background: colour.border }} />
               </div>
             </div>
@@ -253,7 +253,6 @@ export default function AssignmentPage() {
         )}
       </header>
 
-      {/* ── PACE BANNER ──────────────────────────────────────────────────────── */}
       <section className={`rounded-xl p-4 mb-8 border flex items-start gap-3 ${paceStatus.isActive ? "bg-green/5 border-green/20" : "bg-card border-border shadow-sm"}`}>
         <div className={`p-2 rounded-lg ${paceStatus.isActive ? "bg-green/10 text-green" : "bg-navy3 text-muted"}`}>
           <BrainIcon size={18} />
@@ -276,20 +275,18 @@ export default function AssignmentPage() {
       </section>
 
       <div className="grid md:grid-cols-3 gap-8">
-        
-        {/* ── TASKS LIST ────────────────────────────────────────────────────── */}
         <section className="md:col-span-2">
           <h2 className="font-display text-lg font-semibold text-text mb-4 border-b border-border pb-2">Study Plan</h2>
           <ul className="space-y-3">
             {tasks.map((task) => (
-              <li key={task.id} className={`bg-card border rounded-xl p-4 transition-all ${task.status === "done" ? "border-border/50 opacity-60 bg-navy3/30" : task.status === "in_progress" ? "border-amber/40 shadow-sm ring-1 ring-amber/10" : "border-border shadow-sm hover:border-indigo/40"}`}>
-                <div className="flex items-start gap-4">
-                  <button onClick={() => handleToggleTask(task)} className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${task.status === "done" ? "bg-green border-green text-navy" : "border-border hover:border-indigo bg-card"}`}>
+              <li key={task.id}>
+                <article className={`flex items-start gap-4 bg-card border rounded-xl p-4 transition-all ${task.status === "done" ? "border-border/50 opacity-60 bg-navy3/30" : task.status === "in_progress" ? "border-amber/40 shadow-sm ring-1 ring-amber/10" : "border-border shadow-sm hover:border-indigo/40"}`}>
+                  <button onClick={() => handleToggleTask(task)} aria-label={task.status === "done" ? "Mark incomplete" : "Mark complete"} className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${task.status === "done" ? "bg-green border-green text-navy" : "border-border hover:border-indigo bg-card"}`}>
                     {task.status === "done" && <CheckIcon size={12} />}
                   </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <p className={`text-sm font-semibold ${task.status === "done" ? "line-through text-dim" : "text-text"}`}>{task.name}</p>
+                      <h3 className={`text-sm font-semibold ${task.status === "done" ? "line-through text-dim" : "text-text"}`}>{task.name}</h3>
                       {task.status === "in_progress" && <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-amber/10 text-amber font-bold border border-amber/20">Working</span>}
                     </div>
                     {task.description && <p className="text-muted text-xs leading-relaxed mb-2">{task.description}</p>}
@@ -300,29 +297,28 @@ export default function AssignmentPage() {
                     </div>
                   </div>
                   {task.status === "todo" && (
-                    <button onClick={() => handleStartTask(task)} className="flex flex-col items-center justify-center gap-1 text-[10px] uppercase tracking-wider font-bold text-indigo bg-indigo/10 hover:bg-indigo/20 border border-indigo/20 rounded-lg w-12 h-12 transition-all shrink-0">
+                    <button onClick={() => handleStartTask(task)} aria-label={`Start task: ${task.name}`} className="flex flex-col items-center justify-center gap-1 text-[10px] uppercase tracking-wider font-bold text-indigo bg-indigo/10 hover:bg-indigo/20 border border-indigo/20 rounded-lg w-12 h-12 transition-all shrink-0">
                       <PlayIcon size={14} /> Start
                     </button>
                   )}
-                </div>
+                </article>
               </li>
             ))}
           </ul>
         </section>
 
-        {/* ── CHECKLIST ─────────────────────────────────────────────────────── */}
         <section className="md:col-span-1">
           <h2 className="font-display text-lg font-semibold text-text mb-4 border-b border-border pb-2">Requirements</h2>
           <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
             {Object.entries(checklistByCategory).map(([category, items], catIdx) => (
-              <div key={category} className={catIdx > 0 ? "border-t border-border" : ""}>
-                <div className="px-3 py-2 bg-navy3 border-b border-border">
+              <section key={category} className={catIdx > 0 ? "border-t border-border" : ""}>
+                <header className="px-3 py-2 bg-navy3 border-b border-border">
                   <CategoryLabel category={category} />
-                </div>
+                </header>
                 <ul className="divide-y divide-border/50">
                   {items.map((item) => (
                     <li key={item.id} className="flex items-start gap-3 px-3 py-3 hover:bg-navy3/30 transition-colors">
-                      <button onClick={() => handleToggleChecklist(item)} className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-all ${item.checked ? "bg-green border-green text-navy" : "border-border bg-card hover:border-indigo"}`}>
+                      <button onClick={() => handleToggleChecklist(item)} aria-label={item.checked ? "Uncheck requirement" : "Check requirement"} className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-all ${item.checked ? "bg-green border-green text-navy" : "border-border bg-card hover:border-indigo"}`}>
                         {item.checked && <CheckIcon size={10} />}
                       </button>
                       <div className="flex-1 min-w-0">
@@ -332,14 +328,13 @@ export default function AssignmentPage() {
                     </li>
                   ))}
                 </ul>
-              </div>
+              </section>
             ))}
             {checklist.length === 0 && (
               <div className="p-4 text-center text-muted text-sm">No specific requirements found.</div>
             )}
           </div>
 
-          {/* Archive Action */}
           {assignment.status !== "archived" && (
             <button onClick={handleArchive} className="w-full mt-6 flex items-center justify-center gap-2 text-dim hover:text-text hover:bg-navy3 border border-transparent hover:border-border text-sm font-medium rounded-lg py-2 transition-all">
               <ArchiveIcon size={14} /> Archive Assignment
@@ -347,6 +342,6 @@ export default function AssignmentPage() {
           )}
         </section>
       </div>
-    </div>
+    </main>
   );
 }
