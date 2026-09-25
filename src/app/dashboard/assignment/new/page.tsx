@@ -68,7 +68,7 @@ export default function NewAssignmentPage() {
   function handleDrop(e: React.DragEvent) { e.preventDefault(); setIsDragging(false); addFiles(e.dataTransfer.files); }
 
   async function handleAnalyse() {
-    if (!description.trim() && files.length === 0) { setAiError("Add a description or upload a file first."); return; }
+    if (!description.trim() && files.length === 0) { setAiError("Please upload a file or write a description first."); return; }
     setAiError(""); setAnalysing(true);
     try {
       const formData = new FormData();
@@ -113,14 +113,14 @@ export default function NewAssignmentPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <main className="max-w-2xl mx-auto px-4 py-8">
       <header className="mb-8 border-b border-border pb-6">
         <h1 className="font-display text-2xl font-semibold text-text mb-2">New assignment</h1>
         <p className="text-muted text-sm">Upload your brief and let AI build a study plan around your schedule.</p>
       </header>
 
       {limitInfo && !limitInfo.allowed && (
-        <div className="bg-amber/10 border border-amber/25 rounded-xl px-4 py-3 mb-8 text-sm">
+        <div className="bg-amber/10 border border-amber/25 rounded-xl px-4 py-3 mb-8 text-sm" role="alert">
           <p className="text-text font-medium">You&apos;re at your plan&apos;s active assignment limit ({limitInfo.current}/{limitInfo.limit}).</p>
           <p className="text-muted text-xs mt-0.5">Archive an existing assignment, or <a href="/upgrade" className="text-indigo hover:underline font-medium">upgrade your plan</a> to add more.</p>
         </div>
@@ -128,62 +128,72 @@ export default function NewAssignmentPage() {
 
       <form onSubmit={handleSubmit} noValidate className="space-y-8">
         
-        {/* Step 1: Upload & Analyse */}
-        <section className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-5">
-          <div className="flex items-center justify-between border-b border-border pb-3">
+        <section aria-label="Provide the brief" className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-5">
+          <header className="flex items-center justify-between border-b border-border pb-3">
             <h2 className="text-sm font-semibold text-text">1. Provide the brief</h2>
             {aiResult && <span className="text-xs font-medium text-green bg-green/10 px-2 py-0.5 rounded-full">Analysed</span>}
-          </div>
+          </header>
 
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-            onDragLeave={() => setIsDragging(false)}
-            onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
-              isDragging || files.length > 0 ? "border-indigo bg-indigo/5" : "border-border hover:border-indigo/40 hover:bg-navy3/30"
-            }`}
-          >
-            <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.webp" className="sr-only" onChange={(e) => addFiles(e.target.files)} aria-hidden="true" />
-            <div className="text-indigo mb-3 flex justify-center"><UploadIcon /></div>
-            <p className="text-text text-sm font-medium mb-1">{files.length > 0 ? `${files.length} file${files.length > 1 ? "s" : ""} selected` : "Drop your brief here"}</p>
-            <p className="text-dim text-xs">or click anywhere to browse</p>
-          </div>
+          <fieldset className="space-y-4">
+            <legend className="sr-only">Upload files or write description</legend>
+            
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDrop}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
+              className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                isDragging || files.length > 0 ? "border-indigo bg-indigo/5" : "border-border hover:border-indigo/40 hover:bg-navy3/30"
+              }`}
+            >
+              <input ref={fileInputRef} type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.webp" className="sr-only" onChange={(e) => addFiles(e.target.files)} aria-hidden="true" />
+              <div className="text-indigo mb-3 flex justify-center"><UploadIcon /></div>
+              <p className="text-text text-sm font-medium mb-1">{files.length > 0 ? `${files.length} file${files.length > 1 ? "s" : ""} selected` : "Upload files (PDF, DOCX, PPTX, image)"}</p>
+              <p className="text-dim text-xs">or click anywhere to browse</p>
+            </div>
 
-          {files.length > 0 && (
-            <ul className="space-y-2">
-              {files.map((file, i) => (
-                <li key={file.name} className="flex items-center gap-3 bg-navy3/50 border border-border rounded-lg px-3 py-2">
-                  <FileIcon className="text-indigo shrink-0" />
-                  <span className="flex-1 truncate text-sm text-text font-medium">{file.name}</span>
-                  <span className="text-dim text-xs shrink-0">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
-                  <button type="button" onClick={() => removeFile(i)} className="text-dim hover:text-red transition-colors shrink-0 p-1"><XIcon /></button>
-                </li>
-              ))}
-            </ul>
-          )}
+            {files.length > 0 && (
+              <ul className="space-y-2">
+                {files.map((file, i) => (
+                  <li key={file.name} className="flex items-center gap-3 bg-navy3/50 border border-border rounded-lg px-3 py-2">
+                    <FileIcon className="text-indigo shrink-0" />
+                    <span className="flex-1 truncate text-sm text-text font-medium">{file.name}</span>
+                    <span className="text-dim text-xs shrink-0">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
+                    <button type="button" onClick={() => removeFile(i)} className="text-dim hover:text-red transition-colors shrink-0 p-1" aria-label="Remove file"><XIcon /></button>
+                  </li>
+                ))}
+              </ul>
+            )}
 
-          <div>
-            <label htmlFor="description" className="block text-xs font-medium text-muted mb-1.5">Additional Context (Optional)</label>
-            <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={5000} className="w-full bg-card border border-border text-text placeholder-dim rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors resize-none" placeholder="e.g. 'Only focus on Part A', or paste the brief directly here..." />
-          </div>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center" aria-hidden="true"><div className="w-full border-t border-border"></div></div>
+              <div className="relative flex justify-center"><span className="bg-card px-3 text-xs font-medium text-dim uppercase tracking-wide">Or</span></div>
+            </div>
+
+            <div>
+              <label htmlFor="description" className="block text-xs font-medium text-muted mb-1.5">Describe it yourself</label>
+              <textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={5000} className="w-full bg-card border border-border text-text placeholder-dim rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors resize-none" placeholder="Paste the brief text here, or outline the requirements..." />
+            </div>
+          </fieldset>
 
           <div className="pt-2">
             <button type="button" onClick={handleAnalyse} disabled={analysing || (!description.trim() && files.length === 0)} className="w-full flex items-center justify-center gap-2 bg-navy3 border border-border hover:bg-navy hover:text-text text-muted font-medium rounded-lg px-4 py-2.5 text-sm transition-all disabled:opacity-50">
               {analysing ? <span className="w-4 h-4 border-2 border-muted border-t-text rounded-full animate-spin" /> : <SparklesIcon />}
               {aiResult ? "Re-analyse brief" : "Analyse brief"}
             </button>
-            {aiError && <p className="text-red text-xs mt-2 text-center">{aiError}</p>}
+            {aiError && <p className="text-red text-xs mt-2 text-center" role="alert">{aiError}</p>}
           </div>
         </section>
 
-        {/* Step 2: AI Result Receipt */}
         {aiResult && (
-          <section className="bg-indigo/5 border border-indigo/20 rounded-xl overflow-hidden shadow-sm animate-in fade-in slide-in-from-top-2">
-            <div className="bg-indigo/10 px-5 py-3 border-b border-indigo/10 flex items-center justify-between">
+          <section aria-label="AI Breakdown" className="bg-indigo/5 border border-indigo/20 rounded-xl overflow-hidden shadow-sm animate-in fade-in slide-in-from-top-2">
+            <header className="bg-indigo/10 px-5 py-3 border-b border-indigo/10 flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-indigo text-sm font-semibold"><SparklesIcon /> AI Breakdown</h2>
               <span className="text-indigo text-xs font-medium">~{aiResult.estimatedHours}h Total</span>
-            </div>
+            </header>
             
             <div className="p-5 space-y-6">
               {aiResult.estimateAdjustment && (
@@ -197,10 +207,10 @@ export default function NewAssignmentPage() {
                 <ul className="space-y-3">
                   {aiResult.sections.map((section, i) => (
                     <li key={i} className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 p-3 bg-card border border-border rounded-lg">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-text text-sm font-medium">{section.name}</p>
+                      <article className="flex-1 min-w-0">
+                        <h4 className="text-text text-sm font-medium">{section.name}</h4>
                         {section.description && <p className="text-dim text-xs mt-1 leading-relaxed">{section.description}</p>}
-                      </div>
+                      </article>
                       <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 shrink-0">
                         <span className="text-text text-sm font-medium bg-navy3 px-2 py-0.5 rounded-md border border-border">~{section.hours}h</span>
                         {section.confidence != null && <ConfidenceBar value={section.confidence} />}
@@ -227,48 +237,49 @@ export default function NewAssignmentPage() {
           </section>
         )}
 
-        {/* Step 3: Final Details */}
         <section className={`bg-card border border-border rounded-xl p-5 shadow-sm space-y-5 transition-opacity duration-300 ${aiResult ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
-          <div className="border-b border-border pb-3">
+          <header className="border-b border-border pb-3">
             <h2 className="text-sm font-semibold text-text">2. Schedule details</h2>
-          </div>
+          </header>
 
-          <div>
-            <label htmlFor="name" className="block text-xs font-medium text-muted mb-1.5">Assignment Name</label>
-            <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} required className="w-full bg-navy3 border border-border text-text placeholder-dim rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-indigo transition-colors" placeholder="e.g. History Midterm Essay" />
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-5">
+          <fieldset className="space-y-5">
             <div>
-              <label htmlFor="deadline" className="block text-xs font-medium text-muted mb-1.5">Deadline Date</label>
-              <input id="deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} min={today} required className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors" />
+              <label htmlFor="name" className="block text-xs font-medium text-muted mb-1.5">Assignment Name</label>
+              <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={200} required className="w-full bg-navy3 border border-border text-text placeholder-dim rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:border-indigo transition-colors" placeholder="e.g. History Midterm Essay" />
             </div>
-            <div>
-              <label htmlFor="deadline-time" className="block text-xs font-medium text-muted mb-1.5">Time</label>
-              <input id="deadline-time" type="time" value={deadlineTime} onChange={(e) => setDeadlineTime(e.target.value)} className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors" />
-            </div>
-          </div>
 
-          <fieldset>
-            <legend className="text-xs font-medium text-muted mb-2">Priority</legend>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {PRIORITY_OPTIONS.map((opt) => (
-                <label key={opt.value} className={`flex items-center justify-center py-2.5 rounded-lg border text-sm font-medium cursor-pointer transition-all ${priority === opt.value ? `${opt.colour} bg-card shadow-sm` : "text-dim bg-navy3 border-border hover:bg-navy"}`}>
-                  <input type="radio" name="priority" value={opt.value} checked={priority === opt.value} onChange={() => setPriority(opt.value)} className="sr-only" />
-                  {opt.label}
-                </label>
-              ))}
+            <div className="grid sm:grid-cols-2 gap-5">
+              <div>
+                <label htmlFor="deadline" className="block text-xs font-medium text-muted mb-1.5">Deadline Date</label>
+                <input id="deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} min={today} required className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors" />
+              </div>
+              <div>
+                <label htmlFor="deadline-time" className="block text-xs font-medium text-muted mb-1.5">Time</label>
+                <input id="deadline-time" type="time" value={deadlineTime} onChange={(e) => setDeadlineTime(e.target.value)} className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors" />
+              </div>
+            </div>
+
+            <div role="group" aria-labelledby="priority-label">
+              <span id="priority-label" className="block text-xs font-medium text-muted mb-2">Priority</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {PRIORITY_OPTIONS.map((opt) => (
+                  <label key={opt.value} className={`flex items-center justify-center py-2.5 rounded-lg border text-sm font-medium cursor-pointer transition-all ${priority === opt.value ? `${opt.colour} bg-card shadow-sm` : "text-dim bg-navy3 border-border hover:bg-navy"}`}>
+                    <input type="radio" name="priority" value={opt.value} checked={priority === opt.value} onChange={() => setPriority(opt.value)} className="sr-only" />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
             </div>
           </fieldset>
         </section>
 
-        {formError && <div className="bg-red/10 border border-red/20 rounded-xl px-4 py-3 text-red text-sm font-medium text-center">{formError}</div>}
+        {formError && <div className="bg-red/10 border border-red/20 rounded-xl px-4 py-3 text-red text-sm font-medium text-center" role="alert">{formError}</div>}
 
         <button type="submit" disabled={submitting || !aiResult} className="w-full flex items-center justify-center gap-2 bg-indigo hover:bg-indigo/90 text-white font-semibold rounded-xl py-3.5 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {submitting && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
           {submitting ? "Generating Schedule..." : "Create Study Plan"}
         </button>
       </form>
-    </div>
+    </main>
   );
 }
