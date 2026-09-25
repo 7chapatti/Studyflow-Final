@@ -34,7 +34,8 @@ export default function NewAssignmentPage() {
   const [description, setDescription] = useState("");
   const [name, setName] = useState("");
   const [deadline, setDeadline] = useState("");
-  const [deadlineTime, setDeadlineTime] = useState("23:59");
+  const [deadlineHour, setDeadlineHour] = useState("23");
+  const [deadlineMinute, setDeadlineMinute] = useState("59");
   const [priority, setPriority] = useState<Priority>("normal");
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -96,7 +97,9 @@ export default function NewAssignmentPage() {
       if (!user) { router.push("/login"); return; }
       const { data: profile } = await supabase.from("profiles").select("timezone").eq("id", user.id).single();
       const userTimeZone = profile?.timezone ?? "Europe/London";
-      const deadlineWithTime = toIsoWithTimezone(deadline, deadlineTime, userTimeZone);
+      
+      const deadlineTimeStr = `${deadlineHour}:${deadlineMinute}`;
+      const deadlineWithTime = toIsoWithTimezone(deadline, deadlineTimeStr, userTimeZone);
 
       const res = await fetch("/api/assignments", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -253,9 +256,33 @@ export default function NewAssignmentPage() {
                 <label htmlFor="deadline" className="block text-xs font-medium text-muted mb-1.5">Deadline Date</label>
                 <input id="deadline" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} min={today} required className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors" />
               </div>
+              
+              {/* Custom Clean Time Picker Dropdowns */}
               <div>
-                <label htmlFor="deadline-time" className="block text-xs font-medium text-muted mb-1.5">Time</label>
-                <input id="deadline-time" type="time" value={deadlineTime} onChange={(e) => setDeadlineTime(e.target.value)} className="w-full bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors" />
+                <label className="block text-xs font-medium text-muted mb-1.5">Submission Time</label>
+                <div className="flex items-center gap-2">
+                  <select
+                    aria-label="Deadline Hour"
+                    value={deadlineHour}
+                    onChange={(e) => setDeadlineHour(e.target.value)}
+                    className="flex-1 bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors cursor-pointer"
+                  >
+                    {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")).map((h) => (
+                      <option key={h} value={h} className="bg-card text-text">{h}:00</option>
+                    ))}
+                  </select>
+                  <span className="text-dim font-medium">:</span>
+                  <select
+                    aria-label="Deadline Minute"
+                    value={deadlineMinute}
+                    onChange={(e) => setDeadlineMinute(e.target.value)}
+                    className="flex-1 bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors cursor-pointer"
+                  >
+                    {["00", "15", "30", "45", "59"].map((m) => (
+                      <option key={m} value={m} className="bg-card text-text">{m}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
