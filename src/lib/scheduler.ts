@@ -1,4 +1,3 @@
-// src/lib/scheduler.ts
 import {
   addDays,
   addMinutes,
@@ -207,14 +206,11 @@ function getOpenSlotsByDay(params: {
   while (!isAfter(currentZonedDay, endZonedDay)) {
     const dayKey = format(currentZonedDay, "yyyy-MM-dd");
     const isToday = currentZonedDay.getTime() === startOfDay(zonedFrom).getTime();
-    
-    // NIGHT OWL FIX: If it is today, we allow them to start *now* (rounded up), overriding the 8 AM minimum.
     const roundedUpToHalfHour = Math.ceil(dateToHour(zonedFrom) * 2) / 2;
     const startHour = isToday 
       ? roundedUpToHalfHour 
       : (allowLateNight ? LATE_NIGHT_START_HOUR : PREFERRED_START_HOUR);
 
-    // If they are scheduling late at night, dynamically push the end hour to midnight so today isn't completely blocked off.
     const currentEndHour = (isToday && roundedUpToHalfHour >= PREFERRED_END_HOUR)
       ? LATE_NIGHT_END_HOUR
       : (allowLateNight ? LATE_NIGHT_END_HOUR : PREFERRED_END_HOUR);
@@ -398,6 +394,7 @@ function placeTurn(params: {
   const dayWindowStartHour = allowLateNight ? LATE_NIGHT_START_HOUR : PREFERRED_START_HOUR;
   const dayWindowEndHour = allowLateNight ? LATE_NIGHT_END_HOUR : PREFERRED_END_HOUR;
   const gapTiers = respectGap ? [MIN_GAP_MINUTES, 0] : [0];
+  const needsMultipleSessionsPerDay = dailyAssignmentTarget > MAX_CONTINUOUS_HOURS;
 
   const idealDayKey = format(toZonedTime(idealNextDate, timezone), "yyyy-MM-dd");
   const slotsByGap = new Map<number, Map<string, TimeSlot[]>>();
@@ -423,7 +420,7 @@ function placeTurn(params: {
     for (const dayPreference of ["both", "assignmentOnly", "spacingOnly", "none"] as const) {
       for (const dayKey of orderedDayKeys) {
         
-        if (dayPreference !== "none") {
+        if (dayPreference !== "none" && !needsMultipleSessionsPerDay) {
           if (dayKey < idealDayKey) continue;
         }
 
@@ -506,9 +503,7 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
   const atRisk: ScheduleOutput["atRisk"] = [];
   const panicTaskIds = new Set<string>();
 
-  // Tracks the spacing for pacing out work
   const assignmentNextIdealDate = new Map<string, Date>();
-  // CHRONOLOGY FIX: Strictly tracks the end time of the last block scheduled for this assignment
   const assignmentLatestEnd = new Map<string, Date>();
 
   const remainingHours = new Map<string, number>();
