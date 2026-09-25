@@ -278,7 +278,7 @@ export default function NewAssignmentPage() {
                     onChange={(e) => setDeadlineMinute(e.target.value)}
                     className="flex-1 bg-navy3 border border-border text-text rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors cursor-pointer"
                   >
-                    {["00", "15", "30", "45", "59"].map((m) => (
+                    {["00", "15", "30", "45"].map((m) => (
                       <option key={m} value={m} className="bg-card text-text">{m}</option>
                     ))}
                   </select>
