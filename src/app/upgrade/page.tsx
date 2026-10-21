@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { isStripeTestMode } from "@/lib/stripe";
 import UpgradePricing, { type ViewerTier } from "./upgrade-pricing";
 
 export default async function UpgradePage() {
@@ -19,8 +20,7 @@ export default async function UpgradePage() {
   }
   return (
     <Suspense fallback={null}>
-      <UpgradePricing currentTier={currentTier} />
+      <UpgradePricing currentTier={currentTier} isTestMode={isStripeTestMode} />
     </Suspense>
   );
 }
-
