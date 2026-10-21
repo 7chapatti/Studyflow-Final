@@ -2,6 +2,8 @@ import Stripe from "stripe";
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
+export const isStripeTestMode = !process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_");
+
 export const PLANS = {
   premium_monthly: {
     name: "Premium",
