@@ -108,9 +108,14 @@ export default function WeekGlance() {
       <ol className="grid grid-cols-7 gap-1.5 sm:gap-2">
         {WEEK.map((day) => (
           <li key={day.name} className="flex min-w-0 flex-col gap-1.5">
-            <h3 className="text-center text-xs font-normal text-muted">
+            {/* A repeated column label inside a decorative figure, not a
+                real page section -- the figure already has its own sr-only
+                figcaption above. An <h3> here broke the page's heading
+                order (h1 -> this -> the "How it works" h2 further down),
+                which both HTTP Observatory and Lighthouse flagged. */}
+            <p className="text-center text-xs font-normal text-muted">
               {day.name}
-            </h3>
+            </p>
             <ol className="relative h-52 rounded border border-border bg-ink/60 sm:h-64">
               {day.blocks.length === 0 && (
                 <li className="sr-only">Nothing planned</li>
