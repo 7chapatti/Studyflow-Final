@@ -43,7 +43,7 @@ function buildCsp(nonce: string): string {
   return directives.join("; ");
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // crypto.randomUUID() isn't itself base64 -- encoding it is just a
   // convenient way to get a compact, header-safe nonce value; its
   // unpredictability (not its encoding) is what makes it unguessable.
