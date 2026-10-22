@@ -30,7 +30,19 @@ function buildCsp(nonce: string): string {
     process.env.NODE_ENV === "production"
       ? `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`
       : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`,
-    `style-src 'self' 'nonce-${nonce}' 'unsafe-inline' https://fonts.googleapis.com`,
+    // Split from style-src-attr below on purpose. Per the CSP spec, a
+    // directive's 'unsafe-inline' is ignored the moment that SAME directive
+    // also carries a nonce -- which broke every inline style="..." attribute
+    // in the app (the calendar's colour swatches, block positioning) the
+    // first time this shipped: Chrome's own console said so explicitly
+    // ("'unsafe-inline' is ignored if either a hash or nonce value is
+    // present... blocked"), and Lighthouse's Best Practices score dropped
+    // from logging those violations on every load. style-src governs actual
+    // <style> elements/stylesheet links (nonce-gated, tight); style-src-attr
+    // is a separate directive with its own 'unsafe-inline' that the nonce
+    // here has no effect on, so inline style attributes work normally again.
+    `style-src 'self' 'nonce-${nonce}' https://fonts.googleapis.com`,
+    "style-src-attr 'unsafe-inline'",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob:",
     "connect-src 'self' https://*.supabase.co https://api.openai.com",
