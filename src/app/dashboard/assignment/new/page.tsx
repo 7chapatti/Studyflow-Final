@@ -241,9 +241,10 @@ export default function NewAssignmentPage() {
           </section>
         )}
 
-        <section className={`bg-card border border-border rounded-xl p-5 shadow-sm space-y-5 transition-opacity duration-300 ${aiResult ? "opacity-100" : "opacity-40 pointer-events-none"}`}>
+        <section className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-5">
           <header className="border-b border-border pb-3">
             <h2 className="text-sm font-semibold text-text">2. Schedule details</h2>
+            <p className="text-dim text-xs mt-1">Feel free to fill this in before or while you write the brief — you can do both in either order.</p>
           </header>
 
           <fieldset className="space-y-5">

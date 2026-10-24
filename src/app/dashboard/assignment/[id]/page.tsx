@@ -130,6 +130,30 @@ export default function AssignmentPage() {
     setChecklist((prev) => prev.map((c) => (c.id === item.id ? { ...c, checked: !item.checked } : c)));
   }
 
+  async function handleCompleteAssignment() {
+    if (!confirm("Mark this whole assignment as completed? All remaining tasks will be marked done.")) return;
+
+    const supabase = createClient();
+    const now = new Date().toISOString();
+    const remaining = tasks.filter((t) => t.status !== "done");
+
+    // Bulk-complete doesn't ask per task how long it actually took, so --
+    // unlike handleToggleTask's single-task flow -- we don't log these to
+    // pace_log: inventing "actual == estimated" for every remaining task
+    // would feed fabricated data into the pace-adaptation algorithm.
+    if (remaining.length > 0) {
+      await Promise.all(
+        remaining.map((t) =>
+          supabase.from("tasks").update({ status: "done", completed_at: now }).eq("id", t.id)
+        )
+      );
+    }
+    await supabase.from("assignments").update({ status: "complete" }).eq("id", id);
+
+    setTasks((prev) => prev.map((t) => (t.status === "done" ? t : { ...t, status: "done" as const, completed_at: now })));
+    setAssignment((prev) => (prev ? { ...prev, status: "complete" } : prev));
+  }
+
   async function handleArchive() {
     if (!confirm("Remove this assignment? It will be hidden from your dashboard and any uncompleted study blocks will be scrubbed from your calendar.")) return;
     
@@ -353,8 +377,14 @@ export default function AssignmentPage() {
             )}
           </div>
 
+          {assignment.status === "active" && (
+            <button onClick={handleCompleteAssignment} className="w-full mt-6 flex items-center justify-center gap-2 text-green/90 hover:text-green hover:bg-green/10 border border-green/20 text-sm font-medium rounded-lg py-2 transition-all">
+              <CheckIcon size={14} /> Mark assignment complete
+            </button>
+          )}
+
           {assignment.status !== "archived" && (
-            <button onClick={handleArchive} className="w-full mt-6 flex items-center justify-center gap-2 text-red/80 hover:text-red hover:bg-red/10 border border-transparent hover:border-red/20 text-sm font-medium rounded-lg py-2 transition-all">
+            <button onClick={handleArchive} className="w-full mt-2 flex items-center justify-center gap-2 text-red/80 hover:text-red hover:bg-red/10 border border-transparent hover:border-red/20 text-sm font-medium rounded-lg py-2 transition-all">
               <ArchiveIcon size={14} /> Remove & clear calendar
             </button>
           )}
