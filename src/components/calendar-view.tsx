@@ -191,14 +191,9 @@ export default function CalendarView({
   newlyMissedCount,
 }: CalendarViewProps) {
   const router = useRouter();
-  const desktopGridRef = useRef<HTMLDivElement>(null);
-  const mobileGridRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const [weekBase, setWeekBase] = useState(() => initialWeekBase ? new Date(initialWeekBase) : new Date());
-  const [activeDayIndex, setActiveDayIndex] = useState(() => {
-    const d = new Date().getDay();
-    return d === 0 ? 6 : d - 1;
-  });
 
   const hasServerData = initialBlocksRaw !== undefined;
   const initialWeekDays = DAYS.map((_, i) => addDays(getWeekStart(weekBase), i));
@@ -256,6 +251,32 @@ export default function CalendarView({
   }, [loadData]);
   useEffect(() => { setEditMode(false); }, [weekBase]);
 
+  // On narrow screens the grid is wider than the viewport and scrolls
+  // horizontally -- without this it always opens scrolled to Monday, so
+  // whichever day is "today" (or, viewing a different week, the day
+  // closest to today) can be off-screen until the user swipes. Scroll it
+  // into view, and start the vertical scroll a little before the current
+  // hour rather than at midnight.
+  useEffect(() => {
+    const grid = gridRef.current;
+    // The actual scroll container is two levels up: gridRef's div only
+    // supplies a positioning anchor + explicit height, its "min-w" parent
+    // never scrolls itself, and the real `overflow-auto` element is that
+    // parent's parent (see the JSX below).
+    const scrollContainer = grid?.parentElement?.parentElement;
+    if (!grid || !scrollContainer || loading) return;
+    const todayIndex = weekDays.findIndex((d) => isSameDay(d, today));
+    const targetIndex = todayIndex === -1 ? 0 : todayIndex;
+    const colWidth = (grid.getBoundingClientRect().width - GUTTER_WIDTH) / 7;
+    const nowHour = today.getHours();
+    scrollContainer.scrollTo({
+      left: Math.max(0, targetIndex * colWidth - colWidth),
+      top: Math.max(0, (nowHour - 1) * ROW_HEIGHT),
+      behavior: "auto",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, weekBase]);
+
   const hasShownMissedNudge = useRef(false);
   useEffect(() => {
     if (hasShownMissedNudge.current) return;
@@ -268,8 +289,8 @@ export default function CalendarView({
   }, [newlyMissedCount, showToast]);
 
   // ── Drag & Drop Math ───────────────────────────────────────────────────────
-  function getGridPos(clientX: number, clientY: number, isMobile: boolean) {
-    const ref = isMobile ? mobileGridRef.current : desktopGridRef.current;
+  function getGridPos(clientX: number, clientY: number) {
+    const ref = gridRef.current;
     if (!ref) return null;
     const rect = ref.getBoundingClientRect();
     const scrollTop = ref.scrollTop ?? 0;
@@ -280,14 +301,9 @@ export default function CalendarView({
     const hour = relY / ROW_HEIGHT;
     if (hour < 0 || hour > 24) return null;
 
-    let dayIndex: number;
-    if (isMobile) {
-      dayIndex = activeDayIndex;
-    } else {
-      const colWidth = (rect.width - GUTTER_WIDTH) / 7;
-      dayIndex = Math.floor(relX / colWidth);
-      if (dayIndex < 0 || dayIndex > 6) return null;
-    }
+    const colWidth = (rect.width - GUTTER_WIDTH) / 7;
+    const dayIndex = Math.floor(relX / colWidth);
+    if (dayIndex < 0 || dayIndex > 6) return null;
     return { dayIndex, hour };
   }
 
@@ -306,7 +322,7 @@ export default function CalendarView({
   }
 
   // ── Drag Handlers ──────────────────────────────────────────────────────────
-  function onPointerDown(e: React.MouseEvent | React.TouchEvent, block: AnyBlock, isMobile: boolean) {
+  function onPointerDown(e: React.MouseEvent | React.TouchEvent, block: AnyBlock) {
     if (!editMode) return;
     e.preventDefault();
     e.stopPropagation();
@@ -323,7 +339,7 @@ export default function CalendarView({
       durationHours = block.endHour - block.startHour;
     }
 
-    const pos = getGridPos(clientX, clientY, isMobile);
+    const pos = getGridPos(clientX, clientY);
     const grabOffsetHours = pos ? Math.max(0, Math.min(pos.hour - startHour, durationHours - 0.25)) : 0;
 
     const state: DragState = { blockId: block.id, blockType: block.type, durationHours, grabOffsetHours, startX: clientX, startY: clientY, moved: false };
@@ -347,8 +363,7 @@ export default function CalendarView({
     }
 
     setGhostPos({ x: clientX, y: clientY });
-    const isMobile = window.innerWidth < 640;
-    const pos = getGridPos(clientX, clientY, isMobile);
+    const pos = getGridPos(clientX, clientY);
     if (!pos) { setDropTarget(null); return; }
 
     const rawStart = pos.hour - state.grabOffsetHours;
@@ -367,7 +382,7 @@ export default function CalendarView({
       else if (blockedTimes.find((bt) => bt.id !== state.blockId && bt.dayIndex === pos.dayIndex && snappedStart < bt.endHour && snappedEnd > bt.startHour)) { willMerge = true; }
     }
     setDropTarget({ dayIndex: pos.dayIndex, startHour: snappedStart, endHour: snappedEnd, valid, reason, willMerge });
-  }, [taskBlocks, blockedTimes, activeDayIndex]);
+  }, [taskBlocks, blockedTimes]);
 
   const onPointerUp = useCallback(async () => {
     if (longPressRef.current) { clearTimeout(longPressRef.current); longPressRef.current = null; }
@@ -509,7 +524,7 @@ export default function CalendarView({
   }
 
   // ── Render Helpers ─────────────────────────────────────────────────────────
-  function renderTask(block: CalendarBlock, isMobile: boolean) {
+  function renderTask(block: CalendarBlock) {
     const colour = COLOUR_PALETTE[block.colourIndex % COLOUR_PALETTE.length];
     const sH = block.startTime.getHours() + block.startTime.getMinutes() / 60;
     const eH = block.endTime.getHours() + block.endTime.getMinutes() / 60;
@@ -524,8 +539,8 @@ export default function CalendarView({
         className={`absolute left-0.5 right-0.5 rounded-md px-1.5 py-1 text-left overflow-hidden z-10 select-none transition-all ${editMode ? "cursor-grab ring-2 ring-indigo/40 hover:brightness-95 shadow-sm" : "cursor-pointer hover:brightness-110"} ${isDragging ? "opacity-30 scale-95" : "opacity-100"}`}
         style={{ top, height, background: bg, borderLeft: `3px solid ${border}` }}
         aria-label={block.isPanic ? `${block.taskName} (due soon)` : undefined}
-        onMouseDown={editMode ? (e) => onPointerDown(e, block, isMobile) : undefined}
-        onTouchStart={(e) => { if (editMode) onPointerDown(e, block, isMobile); startLongPress(e, block); }}
+        onMouseDown={editMode ? (e) => onPointerDown(e, block) : undefined}
+        onTouchStart={(e) => { if (editMode) onPointerDown(e, block); startLongPress(e, block); }}
         onTouchEnd={cancelLongPress}
         onTouchMove={cancelLongPress}
         onContextMenu={(e) => openCtx(e, block)}
@@ -543,7 +558,7 @@ export default function CalendarView({
     );
   }
 
-  function renderBlocked(bt: CalendarBlockedTime, isMobile: boolean) {
+  function renderBlocked(bt: CalendarBlockedTime) {
     const top = bt.startHour * ROW_HEIGHT;
     const height = (bt.endHour - bt.startHour) * ROW_HEIGHT;
     const isDragging = dragging?.blockId === bt.id && dragging.moved;
@@ -553,8 +568,8 @@ export default function CalendarView({
         key={bt.id}
         className={`absolute left-0.5 right-0.5 rounded-md border select-none transition-all ${editMode ? "bg-blocked border-indigo/60 cursor-grab ring-1 ring-indigo/20 shadow-sm hover:brightness-95" : "bg-blocked border-blocked-edge pointer-events-none"} ${isDragging ? "opacity-30 scale-95" : "opacity-100"}`}
         style={{ top, height }}
-        onMouseDown={editMode ? (e) => onPointerDown(e as unknown as React.MouseEvent, bt, isMobile) : undefined}
-        onTouchStart={(e) => { if (editMode) onPointerDown(e, bt, isMobile); startLongPress(e, bt); }}
+        onMouseDown={editMode ? (e) => onPointerDown(e as unknown as React.MouseEvent, bt) : undefined}
+        onTouchStart={(e) => { if (editMode) onPointerDown(e, bt); startLongPress(e, bt); }}
         onTouchEnd={cancelLongPress}
         onTouchMove={cancelLongPress}
         onContextMenu={(e) => openCtx(e as unknown as React.MouseEvent, bt)}
@@ -583,11 +598,11 @@ export default function CalendarView({
     );
   }
 
-  function DayColumn({ dayIndex, isMobile }: { dayIndex: number; isMobile: boolean }) {
+  function DayColumn({ dayIndex }: { dayIndex: number }) {
     return (
       <div className="relative border-r border-border last:border-r-0 h-full">
-        {blockedTimes.filter((bt) => bt.dayIndex === dayIndex).map((bt) => renderBlocked(bt, isMobile))}
-        {taskBlocks.filter((b) => b.dayIndex === dayIndex).map((b) => renderTask(b, isMobile))}
+        {blockedTimes.filter((bt) => bt.dayIndex === dayIndex).map((bt) => renderBlocked(bt))}
+        {taskBlocks.filter((b) => b.dayIndex === dayIndex).map((b) => renderTask(b))}
         {renderDropPreview(dayIndex)}
       </div>
     );
@@ -681,11 +696,8 @@ export default function CalendarView({
             <div className="w-[1px] h-4 bg-border mx-0.5" />
             <button onClick={() => setWeekBase((d) => addWeeks(d, 1))} className="w-8 h-7 flex items-center justify-center rounded-md text-muted hover:text-text hover:bg-navy transition-all" aria-label="Next week"><ChevronRightIcon /></button>
           </div>
-          <h1 className="font-display text-sm font-semibold text-text hidden sm:block">
+          <h1 className="font-display text-sm font-semibold text-text">
             {format(weekStart, "d MMM")} – {format(weekEnd, "d MMM yyyy")}
-          </h1>
-          <h1 className="font-display text-sm font-semibold text-text sm:hidden">
-            {format(weekDays[activeDayIndex], "EEE d MMM")}
           </h1>
         </div>
 
@@ -735,68 +747,43 @@ export default function CalendarView({
           <span className="w-8 h-8 border-2 border-border border-t-indigo rounded-full animate-spin" aria-label="Loading" />
         </div>
       ) : (
-        <>
-          {/* ── DESKTOP GRID ───────────────────────────────────────────────── */}
-          <div className="hidden sm:flex flex-col flex-1 overflow-auto">
-            <div className="min-w-[640px]">
-              <div className="grid sticky top-0 z-30 bg-card border-b border-border shadow-sm" style={{ gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)` }}>
-                <div className="border-r border-border" />
-                {weekDays.map((day, i) => {
-                  const isToday = isSameDay(day, today);
-                  return (
-                    <div key={i} className={`text-center py-2.5 border-r border-border last:border-r-0 ${isToday ? "bg-indigo/5" : ""}`}>
-                      <p className={`text-[11px] uppercase tracking-wider font-semibold ${isToday ? "text-indigo" : "text-dim"}`}>{DAYS[i]}</p>
-                      <p className={`font-display text-lg font-semibold mt-0.5 ${isToday ? "text-indigo" : "text-text"}`}>{format(day, "d")}</p>
-                    </div>
-                  );
-                })}
-              </div>
-              <div ref={desktopGridRef} className="relative" style={{ height: `${24 * ROW_HEIGHT}px` }}>
-                <HourLines />
-                <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)` }}>
-                  <div className="border-r border-border" />
-                  {weekDays.map((_, dayIdx) => <DayColumn key={dayIdx} dayIndex={dayIdx} isMobile={false} />)}
-                </div>
-                {weekDays.some((d) => isSameDay(d, today)) && (
-                  <div className="absolute border-t-2 border-red/80 z-20 pointer-events-none" style={{ left: `${GUTTER_WIDTH}px`, right: 0, top: `${(today.getHours() + today.getMinutes() / 60) * ROW_HEIGHT}px` }}>
-                    <div className="w-2.5 h-2.5 rounded-full bg-red shadow-sm -translate-y-[5px] -translate-x-[5px]" />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* ── MOBILE GRID ────────────────────────────────────────────────── */}
-          <div className="flex sm:hidden flex-col flex-1 overflow-hidden">
-            <div className="flex border-b border-border shrink-0 bg-card">
+        /* One grid for every screen size: on narrow viewports the forced
+           min-width below (wider than any phone) makes every day column a
+           real, tappable ~110px wide instead of being squashed to ~1fr,
+           and this wrapper's own horizontal scroll is what lets you swipe
+           right to reach Saturday/Sunday -- the same mechanism desktop
+           already relied on, just always-on below the `sm` breakpoint. This
+           replaces the old single-day mobile view, whose separate tab row
+           wasn't offset by the time gutter the grid below it was, which is
+           what put the day label out of line with its own column. */
+        <div className="flex flex-col flex-1 overflow-auto">
+          <div className="min-w-[820px] sm:min-w-0">
+            <div className="grid sticky top-0 z-30 bg-card border-b border-border shadow-sm" style={{ gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)` }}>
+              <div className="border-r border-border" />
               {weekDays.map((day, i) => {
                 const isToday = isSameDay(day, today);
-                const isActive = i === activeDayIndex;
-                const hasBlocks = taskBlocks.some((b) => b.dayIndex === i);
                 return (
-                  <button key={i} onClick={() => setActiveDayIndex(i)} className={`flex-1 min-w-[44px] py-2.5 text-center transition-all border-b-2 ${isActive ? "border-indigo bg-indigo/5" : "border-transparent hover:bg-navy3"}`}>
-                    <p className={`text-[10px] uppercase tracking-wider font-semibold ${isToday ? "text-indigo" : isActive ? "text-text" : "text-dim"}`}>{DAYS[i].charAt(0)}</p>
-                    <p className={`font-display text-base font-semibold mt-0.5 ${isToday ? "text-indigo" : isActive ? "text-text" : "text-muted"}`}>{format(day, "d")}</p>
-                    {hasBlocks && <div className={`w-1 h-1 rounded-full mx-auto mt-1 ${isActive ? "bg-indigo" : "bg-border"}`} />}
-                  </button>
+                  <div key={i} className={`text-center py-2.5 border-r border-border last:border-r-0 ${isToday ? "bg-indigo/5" : ""}`}>
+                    <p className={`text-[11px] uppercase tracking-wider font-semibold ${isToday ? "text-indigo" : "text-dim"}`}>{DAYS[i]}</p>
+                    <p className={`font-display text-lg font-semibold mt-0.5 ${isToday ? "text-indigo" : "text-text"}`}>{format(day, "d")}</p>
+                  </div>
                 );
               })}
             </div>
-            <div ref={mobileGridRef} className="flex-1 overflow-auto bg-card">
-              <div className="relative" style={{ height: `${24 * ROW_HEIGHT}px` }}>
-                <HourLines />
-                <div className="absolute inset-0" style={{ paddingLeft: `${GUTTER_WIDTH}px` }}>
-                  <DayColumn dayIndex={activeDayIndex} isMobile={true} />
-                </div>
-                {isSameDay(weekDays[activeDayIndex], today) && (
-                  <div className="absolute border-t-2 border-red/80 z-20 pointer-events-none" style={{ left: `${GUTTER_WIDTH}px`, right: 0, top: `${(today.getHours() + today.getMinutes() / 60) * ROW_HEIGHT}px` }}>
-                    <div className="w-2.5 h-2.5 rounded-full bg-red shadow-sm -translate-y-[5px] -translate-x-[5px]" />
-                  </div>
-                )}
+            <div ref={gridRef} className="relative" style={{ height: `${24 * ROW_HEIGHT}px` }}>
+              <HourLines />
+              <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `${GUTTER_WIDTH}px repeat(7, 1fr)` }}>
+                <div className="border-r border-border" />
+                {weekDays.map((_, dayIdx) => <DayColumn key={dayIdx} dayIndex={dayIdx} />)}
               </div>
+              {weekDays.some((d) => isSameDay(d, today)) && (
+                <div className="absolute border-t-2 border-red/80 z-20 pointer-events-none" style={{ left: `${GUTTER_WIDTH}px`, right: 0, top: `${(today.getHours() + today.getMinutes() / 60) * ROW_HEIGHT}px` }}>
+                  <div className="w-2.5 h-2.5 rounded-full bg-red shadow-sm -translate-y-[5px] -translate-x-[5px]" />
+                </div>
+              )}
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* ── LEGEND ──────────────────────────────────────────────────────────── */}
