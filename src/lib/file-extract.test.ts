@@ -34,3 +34,32 @@ describe("extractFileContent — PII redaction runs before whitespace is collaps
     expect(result.text).toBe("Write a 2000 word essay. Deadline: 15/03/2026.");
   });
 });
+
+describe("extractFileContent — binary-format detection doesn't rely on MIME type alone", () => {
+  it("rejects legacy .doc/.ppt with a clear note instead of returning decoded binary garbage", async () => {
+    // Invalid UTF-8 byte sequences (as in any OLE2 .doc/.ppt file) decode to
+    // the replacement character U+FFFD, which used to pass the "is this
+    // printable text?" heuristic and get sent to the AI as if it were the
+    // brief's real content.
+    const buf = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 0, 0, 0, 0]);
+    const file = new File([buf], "brief.doc", { type: "application/msword" });
+    const result = await extractFileContent(file, 1_000_000);
+
+    expect(result.text).toBe("");
+    expect(result.note).toContain("doc/.ppt");
+  });
+
+  it("falls back to the filename extension when the browser sends no MIME type", async () => {
+    // Drag-and-drop in some browsers leaves file.type empty even for a real
+    // PDF/DOCX/PPTX; without an extension fallback this silently returned
+    // the file's raw internal structure as "text" instead of parsing it.
+    const content = "%PDF-1.4\n1 0 obj<< /Type /Catalog >>endobj\n%%EOF";
+    const file = new File([content], "brief.pdf", { type: "" });
+    const result = await extractFileContent(file, 1_000_000);
+
+    // A malformed PDF like this won't extract real text, but it must go
+    // through the PDF parser (and fail/empty there) rather than being
+    // treated as plain text and returning the raw PDF source verbatim.
+    expect(result.text).not.toContain("obj<<");
+  });
+});
