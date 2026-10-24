@@ -229,9 +229,14 @@ Step 1 — classify the content:
 
 Step 2 — only if isSafe AND isAcademic, plan the assignment:
 - break it into actual deliverables the student must produce
-- extract checklist items such as word counts, reference style, submission rules, and formatting requirements
 - estimate the total work realistically
-- do NOT invent requirements that are not present
+- build the checklist strictly from what the brief actually states -- see CHECKLIST GROUNDING below
+
+CHECKLIST GROUNDING (this is the most commonly violated rule -- follow it exactly):
+- A checklist item may ONLY be included if the brief text or an attached image explicitly states it. Word count, reference/citation style, submission format, and formatting rules are common in real briefs, but that does NOT mean every brief states them -- most briefs you see will be missing one or more of these, and that is normal, not a gap for you to fill in.
+- Do NOT add a "standard"/"typical"/"usually required" item for a category just because student assignments often have one. If citation style, word limit, or submission format is not actually written in the brief, leave that category out entirely -- do not guess a plausible default (e.g. do not assume Harvard referencing or PDF submission).
+- Every checklist item's "detail" field is MANDATORY and must be the exact quoted or closely paraphrased wording from the brief that states the requirement. If you cannot point to specific wording in the brief for it, do not include the item -- an empty, generic, or invented "detail" is grounds for rejecting the item in review.
+- When genuinely unsure whether something counts as a stated requirement, leave it out. A shorter, sparser checklist that only reflects what's actually written is strongly preferred over a complete-looking one that includes assumptions.
 
 If isSafe is false or isAcademic is false: set "estimatedHours" to 0 and "sections"/"checklist" to empty arrays. Do not attempt the planning task in that case.
 
@@ -274,7 +279,7 @@ Return ONLY valid compact JSON:
     {
       "category": "<word_limit|references|formatting|sections|submission|other>",
       "label": "<human readable requirement>",
-      "detail": "<exact wording if available>",
+      "detail": "<REQUIRED -- the exact or closely paraphrased wording from the brief that states this requirement. Never leave this empty or generic; if you have no such wording, don't include the item at all>",
       "confidence": <0.5-1.0>
     }
   ]
@@ -396,13 +401,25 @@ Return ONLY valid compact JSON:
       }
     }
 
-    parsed.checklist = (parsed.checklist ?? []).slice(0, 15).map((item) => ({
-      ...item,
-      category: item.category ?? "other",
-      label: compressWhitespace(item.label ?? "").slice(0, 300),
-      detail: item.detail ? compressWhitespace(item.detail).slice(0, 500) : undefined,
-      confidence: Math.max(0, Math.min(1, item.confidence ?? 0.7)),
-    }));
+    // "detail" is the model's quoted/paraphrased evidence from the brief
+    // for why this checklist item exists. The prompt tells it never to
+    // omit this field, but a prompt instruction alone isn't an enforced
+    // guarantee -- a checklist item with no real supporting detail is
+    // exactly what an invented, not-actually-in-the-brief requirement
+    // looks like (e.g. "submission format" with no detail, because
+    // nothing in the brief said one), so those are dropped here rather
+    // than trusted through.
+    parsed.checklist = (parsed.checklist ?? [])
+      .map((item) => ({
+        ...item,
+        category: item.category ?? "other",
+        label: compressWhitespace(item.label ?? "").slice(0, 300),
+        detail: item.detail ? compressWhitespace(item.detail).slice(0, 500) : "",
+        confidence: Math.max(0, Math.min(1, item.confidence ?? 0.7)),
+      }))
+      .filter((item) => item.label && item.detail)
+      .slice(0, 15)
+      .map((item) => ({ ...item, detail: item.detail || undefined }));
 
     return NextResponse.json({ success: true, data: parsed });
   } catch (err: unknown) {
