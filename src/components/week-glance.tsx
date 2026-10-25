@@ -80,7 +80,7 @@ export default function WeekGlance() {
   return (
     <figure className="chalk-grid m-0 flex flex-col gap-3 rounded-xl border border-border p-4">
       <figcaption className="sr-only">
-        A sample week in StudyFlow: study blocks coloured by assignment, one
+        A sample week in Duecourse: study blocks coloured by assignment, one
         block flagged as due soon, and busy time such as lectures and work
         shown as blocked.
       </figcaption>

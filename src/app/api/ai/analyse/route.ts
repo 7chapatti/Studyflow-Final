@@ -178,7 +178,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: "This content can't be processed. StudyFlow is for academic assignments only.",
+        error: "This content can't be processed. Duecourse is for academic assignments only.",
       },
       { status: 400 }
     );
@@ -335,7 +335,7 @@ Return ONLY valid compact JSON:
         {
           success: false,
           error:
-            "This content can't be processed. StudyFlow is for academic assignments only.",
+            "This content can't be processed. Duecourse is for academic assignments only.",
         },
         { status: 400 }
       );

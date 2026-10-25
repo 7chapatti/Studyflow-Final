@@ -19,8 +19,8 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
   title: {
-    default: "StudyFlow — Personal Study Planner",
-    template: "%s | StudyFlow",
+    default: "Duecourse — Personal Study Planner",
+    template: "%s | Duecourse",
   },
   description:
     "AI-powered study planner that breaks your assignments into tasks and schedules them around your life.",
@@ -29,16 +29,16 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   openGraph: {
-    title: "StudyFlow — Personal Study Planner",
+    title: "Duecourse — Personal Study Planner",
     description:
       "AI-powered study planner that breaks your assignments into tasks and schedules them around your life.",
     url: "/",
-    siteName: "StudyFlow",
+    siteName: "Duecourse",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "StudyFlow — Personal Study Planner",
+    title: "Duecourse — Personal Study Planner",
     description:
       "AI-powered study planner that breaks your assignments into tasks and schedules them around your life.",
   },

@@ -184,7 +184,7 @@ export default function BlockedTimesPage() {
     <main className="max-w-3xl mx-auto px-4 py-8">
       <header className="mb-8 border-b border-border pb-6">
         <h1 className="font-display text-2xl font-semibold text-text mb-2">Blocked Times</h1>
-        <p className="text-muted text-sm">Set regular commitments. StudyFlow will schedule your tasks around them automatically.</p>
+        <p className="text-muted text-sm">Set regular commitments. Duecourse will schedule your tasks around them automatically.</p>
       </header>
 
       <section aria-labelledby="add-heading" className="bg-navy3/30 border border-border rounded-xl p-6 mb-8 shadow-sm">

@@ -84,7 +84,7 @@ export default function DashboardLayout({
           href="/dashboard"
           className="font-display text-lg font-semibold text-text hover:text-il transition-colors shrink-0"
         >
-          StudyFlow
+          Duecourse
         </Link>
 
         <div className="flex-1" />

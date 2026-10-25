@@ -137,7 +137,7 @@ export default function UpgradePricing({
             className="bg-amber-500/10 border border-amber-500/25 rounded-xl px-5 py-4 mb-8"
           >
             <h2 id="test-mode-heading" className="text-amber-200 text-sm font-medium">
-              StudyFlow is running in test mode
+              Duecourse is running in test mode
             </h2>
             <p className="text-amber-200/80 text-xs mt-1">
               Payments aren&apos;t live yet, so no real card will be charged. Use a{" "}

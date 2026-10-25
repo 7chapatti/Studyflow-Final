@@ -5,7 +5,7 @@ const STEPS = [
   {
     title: "You hand over the brief",
     description:
-      "Upload the assignment sheet as a PDF, or just describe it in your own words. StudyFlow reads out the actual deliverables, word counts and formatting rules so nothing gets missed on a skim-read.",
+      "Upload the assignment sheet as a PDF, or just describe it in your own words. Duecourse reads out the actual deliverables, word counts and formatting rules so nothing gets missed on a skim-read.",
   },
   {
     title: "It becomes a real week",
@@ -15,7 +15,7 @@ const STEPS = [
   {
     title: "It learns your pace",
     description:
-      "Spent 70 minutes on a reading you expected to take 40? StudyFlow adjusts future estimates instead of making you feel like you're behind.",
+      "Spent 70 minutes on a reading you expected to take 40? Duecourse adjusts future estimates instead of making you feel like you're behind.",
   },
 ] as const;
 
@@ -33,7 +33,7 @@ export default function LandingPage() {
           className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4"
         >
           <Link href="/" className="font-display text-base font-semibold text-text">
-            StudyFlow
+            Duecourse
           </Link>
           <Link href="/login" className={`ml-auto mr-3 ${outlineButton}`}>
             Log in
@@ -57,7 +57,7 @@ export default function LandingPage() {
               Messy assignments, easily planned.
             </h1>
             <p className="mt-4 max-w-md leading-relaxed text-muted">
-              Upload an assignment brief and StudyFlow breaks it down, estimates
+              Upload an assignment brief and Duecourse breaks it down, estimates
               the work, and finds time for it around the rest of your week.
             </p>
             <Link

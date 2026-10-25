@@ -29,9 +29,9 @@ export default function TermsPage() {
               1. Who these terms are with
             </h2>
             <p className="text-sm leading-relaxed text-muted">
-              StudyFlow is operated by Astrape, 66 Hampton Road, Birmingham B6
-              6AB, United Kingdom (&quot;StudyFlow&quot;, &quot;we&quot;,
-              &quot;us&quot;). By creating an account or using StudyFlow you
+              Duecourse is operated by Astrape, 66 Hampton Road, Birmingham B6
+              6AB, United Kingdom (&quot;Duecourse&quot;, &quot;we&quot;,
+              &quot;us&quot;). By creating an account or using Duecourse you
               agree to these terms. If you don&apos;t agree to them, please
               don&apos;t use the service.
             </p>
@@ -39,10 +39,10 @@ export default function TermsPage() {
 
           <section className="mb-7">
             <h2 className="font-display mb-2 text-base font-semibold text-text">
-              2. What StudyFlow does
+              2. What Duecourse does
             </h2>
             <p className="mb-3 text-sm leading-relaxed text-muted">
-              StudyFlow reads an assignment brief you upload or describe,
+              Duecourse reads an assignment brief you upload or describe,
               breaks it into tasks, estimates how long each will take, and
               schedules time for them around your other commitments.
             </p>
@@ -51,10 +51,10 @@ export default function TermsPage() {
                 The breakdown, time estimates and schedule are suggestions,
                 not guarantees.
               </strong>{" "}
-              StudyFlow uses an AI model to read your brief, and AI can
+              Duecourse uses an AI model to read your brief, and AI can
               misread requirements or miss details. You&apos;re responsible
               for checking the actual assignment brief yourself and for
-              meeting your own deadlines — don&apos;t rely on StudyFlow as
+              meeting your own deadlines — don&apos;t rely on Duecourse as
               your only source of truth for what&apos;s actually required.
             </p>
           </section>
@@ -64,7 +64,7 @@ export default function TermsPage() {
               3. Your account
             </h2>
             <p className="mb-3 text-sm leading-relaxed text-muted">
-              You need to be at least 16 years old to create a StudyFlow
+              You need to be at least 16 years old to create a Duecourse
               account, or have a parent or guardian&apos;s permission if
               you&apos;re younger. You&apos;re responsible for the
               information you give us being accurate, and for keeping your
@@ -83,7 +83,7 @@ export default function TermsPage() {
               4. Plans and limits
             </h2>
             <p className="mb-3 text-sm leading-relaxed text-muted">
-              StudyFlow is free to start, with paid plans for people juggling
+              Duecourse is free to start, with paid plans for people juggling
               more assignments:
             </p>
             <ul className="mb-3 space-y-1.5 text-sm text-muted">
@@ -125,7 +125,7 @@ export default function TermsPage() {
               <strong className="font-medium text-text">
                 14-day money-back guarantee
               </strong>
-              . If StudyFlow isn&apos;t right for you, contact us within 14
+              . If Duecourse isn&apos;t right for you, contact us within 14
               days of being charged and we&apos;ll refund that payment.
             </p>
           </section>
@@ -135,7 +135,7 @@ export default function TermsPage() {
               6. Acceptable use
             </h2>
             <p className="text-sm leading-relaxed text-muted">
-              Please don&apos;t use StudyFlow to upload content you don&apos;t
+              Please don&apos;t use Duecourse to upload content you don&apos;t
               have the right to use, try to get around the plan limits above,
               scrape or automate access to the service, or attempt to
               interfere with how it runs for other people.
@@ -147,8 +147,8 @@ export default function TermsPage() {
               7. Your content
             </h2>
             <p className="text-sm leading-relaxed text-muted">
-              Whatever you upload or write in StudyFlow — assignment briefs,
-              task notes, and so on — stays yours. By using StudyFlow you give
+              Whatever you upload or write in Duecourse — assignment briefs,
+              task notes, and so on — stays yours. By using Duecourse you give
               us permission to store and process that content for the sole
               purpose of running the service for you, including sending it to
               OpenAI to generate the task breakdown and estimates.
@@ -160,7 +160,7 @@ export default function TermsPage() {
               8. Academic integrity
             </h2>
             <p className="text-sm leading-relaxed text-muted">
-              StudyFlow plans your work; it doesn&apos;t do it for you. The
+              Duecourse plans your work; it doesn&apos;t do it for you. The
               breakdown, estimates and scheduling are there to help you
               organise your own time. You&apos;re responsible for following
               your institution&apos;s academic integrity rules in how you
@@ -173,12 +173,12 @@ export default function TermsPage() {
               9. Liability and availability
             </h2>
             <p className="mb-3 text-sm leading-relaxed text-muted">
-              StudyFlow is provided &quot;as is&quot;. We do our best to keep
+              Duecourse is provided &quot;as is&quot;. We do our best to keep
               it available and accurate, but we don&apos;t promise it will be
               uninterrupted, error-free, or that its AI-generated suggestions
               will be correct. To the fullest extent the law allows, we&apos;re
               not liable for missed deadlines, lost work, or other losses
-              arising from your use of StudyFlow.
+              arising from your use of Duecourse.
             </p>
             <p className="text-sm leading-relaxed text-muted">
               Nothing in these terms limits our liability where it would be
@@ -193,7 +193,7 @@ export default function TermsPage() {
             </h2>
             <p className="text-sm leading-relaxed text-muted">
               We may update these terms from time to time, for example as
-              StudyFlow&apos;s features change. We&apos;ll update the date at
+              Duecourse&apos;s features change. We&apos;ll update the date at
               the top of this page when we do, and for significant changes
               we&apos;ll try to let you know directly.
             </p>

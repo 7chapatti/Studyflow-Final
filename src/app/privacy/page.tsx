@@ -25,9 +25,9 @@ export default function PrivacyPage() {
           {privacyPolicyUrl ? (
             <>
               <p className="mb-4 text-sm leading-relaxed text-muted">
-                StudyFlow&apos;s Privacy &amp; Cookie Policy covers what account
+                Duecourse&apos;s Privacy &amp; Cookie Policy covers what account
                 and assignment data is collected, which services process it
-                on StudyFlow&apos;s behalf, and how to request deletion of
+                on Duecourse&apos;s behalf, and how to request deletion of
                 your data.
               </p>
               <p className="mb-6 text-sm">
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
                 <p className="text-sm leading-relaxed text-muted">
                   If you subscribe to a paid plan, your payment is processed
                   by Stripe. Stripe receives the billing details needed to
-                  take payment (such as your card information) — StudyFlow
+                  take payment (such as your card information) — Duecourse
                   never sees or stores your card details directly. See{" "}
                   <Link
                     href="https://stripe.com/gb/privacy"
@@ -72,9 +72,9 @@ export default function PrivacyPage() {
             </>
           ) : (
             <p className="text-sm leading-relaxed text-muted">
-              StudyFlow&apos;s Privacy &amp; Cookie Policy is being finalised
+              Duecourse&apos;s Privacy &amp; Cookie Policy is being finalised
               and isn&apos;t published yet. Check back shortly, or contact
-              StudyFlow directly with any questions about how your data is
+              Duecourse directly with any questions about how your data is
               handled.
             </p>
           )}

@@ -87,7 +87,7 @@ export default function AssignmentPage() {
     if (isDone) {
       // Clean native prompt to log actual study time for the Pace algorithm
       const input = window.prompt(
-        `Great job finishing "${task.name}"!\n\nHow many hours did this actually take? (This helps StudyFlow adapt your future estimates)`,
+        `Great job finishing "${task.name}"!\n\nHow many hours did this actually take? (This helps Duecourse adapt your future estimates)`,
         task.estimated_hours.toString()
       );
       if (input === null) return; // User clicked Cancel
@@ -312,7 +312,7 @@ export default function AssignmentPage() {
           <p className={`text-xs leading-relaxed ${paceStatus.isActive ? "text-green/80" : "text-muted"}`}>
             {paceStatus.isActive 
               ? `${paceStatus.description} Adapting future estimates based on ${paceStatus.samplesCollected} completed blocks.` 
-              : `${paceStatus.samplesCollected} of ${paceStatus.samplesNeeded} tasks completed. StudyFlow will adapt estimates once enough data is gathered.`}
+              : `${paceStatus.samplesCollected} of ${paceStatus.samplesNeeded} tasks completed. Duecourse will adapt estimates once enough data is gathered.`}
           </p>
           {!paceStatus.isActive && paceLog.length > 0 && (
             <div className="mt-3 h-1.5 bg-navy3 rounded-full overflow-hidden border border-border">

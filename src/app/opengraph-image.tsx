@@ -38,7 +38,7 @@ export default function OpengraphImage() {
             }}
           />
           <div style={{ fontSize: 64, fontWeight: 700, color: "#F3F1E9" }}>
-            StudyFlow
+            Duecourse
           </div>
         </div>
         <div style={{ fontSize: 30, color: "#D7DED3", maxWidth: 800, textAlign: "center" }}>
