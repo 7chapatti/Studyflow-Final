@@ -102,17 +102,27 @@ export default function LandingPage() {
       </main>
 
       <footer className="border-t border-border">
-        <nav
-          aria-label="Legal"
-          className="mx-auto flex w-full max-w-6xl gap-5 px-6 py-6 text-xs text-dim"
-        >
-          <Link href="/terms" className="transition-colors hover:text-muted">
-            Terms
-          </Link>
-          <Link href="/privacy" className="transition-colors hover:text-muted">
-            Privacy
-          </Link>
-        </nav>
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-6 text-xs text-dim">
+          <nav aria-label="Legal" className="flex gap-5">
+            <Link href="/terms" className="transition-colors hover:text-muted">
+              Terms
+            </Link>
+            <Link href="/privacy" className="transition-colors hover:text-muted">
+              Privacy
+            </Link>
+          </nav>
+          <p>
+            Made by{" "}
+            <a
+              href="https://astrape.co.uk/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-dim transition-colors hover:text-muted"
+            >
+              Astrape
+            </a>
+          </p>
+        </div>
       </footer>
     </>
   );

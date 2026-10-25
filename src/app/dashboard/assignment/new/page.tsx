@@ -4,15 +4,16 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { toIsoWithTimezone } from "@/lib/datetime";
-import type { AIAnalysisResult, Priority } from "@/types";
+import type { AIAnalysisResult } from "@/types";
 import { CheckIcon, FileIcon, SparklesIcon, UploadIcon, XIcon } from "@/components/icons";
 
-const PRIORITY_OPTIONS: { value: Priority; label: string; colour: string }[] = [
-  { value: "low",    label: "Low",    colour: "text-dim border-border hover:border-dim" },
-  { value: "normal", label: "Normal", colour: "text-muted border-border hover:border-muted" },
-  { value: "high",   label: "High",   colour: "text-amber border-amber/40 hover:border-amber/80" },
-  { value: "urgent", label: "Urgent", colour: "text-red border-red/40 hover:border-red/80" },
-];
+// New assignments default to "normal" priority -- the scheduler's urgency
+// scoring (priorityScore in scheduler.ts) is dominated by how close the
+// deadline is anyway, so asking for this up front added a decision most
+// students don't need. It's still adjustable afterwards from the
+// assignment's own page, for the rarer case of two similarly-due
+// assignments where a manual nudge actually matters.
+const DEFAULT_PRIORITY = "normal" as const;
 
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(value * 100);
@@ -35,7 +36,6 @@ export default function NewAssignmentPage() {
   const [name, setName] = useState("");
   const [deadline, setDeadline] = useState("");
   const [deadlineTime, setDeadlineTime] = useState("23:59");
-  const [priority, setPriority] = useState<Priority>("normal");
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
@@ -104,7 +104,7 @@ export default function NewAssignmentPage() {
 
       const res = await fetch("/api/assignments", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), description: description.trim() || undefined, deadline: deadlineWithTime, priority, sections: aiResult.sections, checklist: aiResult.checklist ?? [] }),
+        body: JSON.stringify({ name: name.trim(), description: description.trim() || undefined, deadline: deadlineWithTime, priority: DEFAULT_PRIORITY, sections: aiResult.sections, checklist: aiResult.checklist ?? [] }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) { setFormError(json.error ?? "Failed to create assignment."); setSubmitting(false); return; }
@@ -298,18 +298,6 @@ export default function NewAssignmentPage() {
                     ))}
                   </select>
                 </div>
-              </div>
-            </div>
-
-            <div role="group" aria-labelledby="priority-label">
-              <span id="priority-label" className="block text-xs font-medium text-muted mb-2">Priority</span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {PRIORITY_OPTIONS.map((opt) => (
-                  <label key={opt.value} className={`flex items-center justify-center py-2.5 rounded-lg border text-sm font-medium cursor-pointer transition-all ${priority === opt.value ? `${opt.colour} bg-card shadow-sm` : "text-dim bg-navy3 border-border hover:border-border/80"}`}>
-                    <input type="radio" name="priority" value={opt.value} checked={priority === opt.value} onChange={() => setPriority(opt.value)} className="sr-only" />
-                    {opt.label}
-                  </label>
-                ))}
               </div>
             </div>
           </fieldset>

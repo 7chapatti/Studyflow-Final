@@ -612,7 +612,7 @@ export default function CalendarView({
     return (
       <>
         {HOURS.map((hour) => (
-          <div key={hour} className="absolute left-0 right-0 border-t border-border/50" style={{ top: `${hour * ROW_HEIGHT}px` }}>
+          <div key={hour} className="absolute left-0 right-0 border-t border-border" style={{ top: `${hour * ROW_HEIGHT}px` }}>
             {hour > 0 && (
               <span className="absolute left-0 w-14 text-right pr-2 text-xs text-dim select-none font-medium" style={{ top: -9 }}>
                 {pad(hour)}:00
