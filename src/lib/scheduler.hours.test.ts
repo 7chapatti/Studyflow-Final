@@ -149,6 +149,95 @@ describe("scheduleTasks — never books sleeping hours", () => {
   });
 });
 
+describe("scheduleTasks — overnight blocks are opt-in per assignment", () => {
+  // Same squeeze as the at-risk test above: 20:00 now, due 09:00 tomorrow,
+  // 8h of work, only 5h of waking time before the deadline buffer.
+  const evening = new Date("2026-08-10T20:00:00.000Z");
+  const dueTomorrowMorning = "2026-08-11T09:00:00.000Z";
+
+  function isOvernight(block: { start_time: string }): boolean {
+    return localHours(block.start_time, "UTC") < 6;
+  }
+
+  it("works through the night when the assignment allows it and it's the only way to fit", () => {
+    const a = makeAssignment({ deadline: dueTomorrowMorning, priority: "urgent", allow_overnight: true });
+    const task = makeTask(a, { estimated_hours: 8 });
+
+    const { blocks, atRisk } = scheduleTasks("u1", baseInput({ tasks: [task], now: evening }));
+
+    expect(atRisk).toEqual([]);
+    expect(blocks.reduce((sum, b) => sum + blockHours(b), 0)).toBeCloseTo(8, 1);
+    expect(blocks.some(isOvernight)).toBe(true);
+  });
+
+  it("fills the evening before touching the night", () => {
+    const a = makeAssignment({ deadline: dueTomorrowMorning, priority: "urgent", allow_overnight: true });
+    const task = makeTask(a, { estimated_hours: 8 });
+
+    const { blocks } = scheduleTasks("u1", baseInput({ tasks: [task], now: evening }));
+
+    const tonight = blocks
+      .filter((b) => b.start_time.startsWith("2026-08-10"))
+      .reduce((sum, b) => sum + blockHours(b), 0);
+    // 20:00-24:00 is four hours; breaks between blocks take a little of it.
+    expect(tonight).toBeGreaterThanOrEqual(3);
+  });
+
+  it("doesn't use the night when there is room in the day, even if allowed", () => {
+    const a = makeAssignment({ deadline: "2026-08-11T20:00:00.000Z", priority: "urgent", allow_overnight: true });
+
+    const { blocks, atRisk } = scheduleTasks(
+      "u1",
+      baseInput({ tasks: [makeTask(a, { estimated_hours: 6 })] })
+    );
+
+    expect(atRisk).toEqual([]);
+    expect(blocks.some(isOvernight)).toBe(false);
+  });
+
+  it("ignores the setting while the deadline is more than two days away", () => {
+    // Daytime and evenings fully blocked, so the only free time in the
+    // next few days is overnight; the deadline is still five days off.
+    const allDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const wakingHoursBlocked = {
+      id: "bt-night",
+      user_id: "u1",
+      label: "Busy",
+      days: allDays,
+      start_hour: 6,
+      end_hour: 24,
+      repeat_weekly: true,
+      created_at: NOW.toISOString(),
+    } as BlockedTime;
+
+    const a = makeAssignment({ deadline: "2026-08-15T09:00:00.000Z", allow_overnight: true });
+    const task = makeTask(a, { estimated_hours: 2 });
+
+    const { blocks, atRisk } = scheduleTasks(
+      "u1",
+      baseInput({ tasks: [task], blockedTimes: [wakingHoursBlocked] })
+    );
+
+    expect(blocks).toEqual([]);
+    expect(atRisk.map((r) => r.task.id)).toContain(task.id);
+  });
+
+  it("only affects the assignment it was switched on for", () => {
+    const allowed = makeAssignment({ deadline: dueTomorrowMorning, priority: "urgent", allow_overnight: true });
+    const notAllowed = makeAssignment({ deadline: dueTomorrowMorning, priority: "urgent" });
+    const allowedTask = makeTask(allowed, { estimated_hours: 6 });
+    const otherTask = makeTask(notAllowed, { estimated_hours: 6 });
+
+    const { blocks } = scheduleTasks(
+      "u1",
+      baseInput({ tasks: [allowedTask, otherTask], now: evening })
+    );
+
+    const otherOvernight = blocks.filter((b) => b.task_id === otherTask.id && isOvernight(b));
+    expect(otherOvernight).toEqual([]);
+  });
+});
+
 describe("scheduleTasks — fills earlier days before spilling onto later ones", () => {
   it("uses today's free evening instead of leaving it empty and overloading deadline day", () => {
     const dueSoon = "2026-08-11T20:00:00.000Z";

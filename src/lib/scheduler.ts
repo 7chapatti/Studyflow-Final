@@ -40,6 +40,14 @@ interface HourWindow {
 }
 const PREFERRED_WINDOW: HourWindow = { startHour: PREFERRED_START_HOUR, endHour: PREFERRED_END_HOUR };
 const EXTENDED_WINDOW: HourWindow = { startHour: EXTENDED_START_HOUR, endHour: EXTENDED_END_HOUR };
+
+// The whole day, nights included. Only ever used for an assignment whose
+// owner ticked "allow overnight study blocks", and only once its deadline
+// is within OVERNIGHT_MAX_HOURS_BEFORE_DEADLINE. It is tried last, after
+// the waking day is full, so it means "work through the night because
+// that's the only way this gets done", never "prefer 3am".
+const OVERNIGHT_WINDOW: HourWindow = { startHour: 0, endHour: 24 };
+export const OVERNIGHT_MAX_HOURS_BEFORE_DEADLINE = 48;
 const MAX_CONTINUOUS_HOURS = 2;
 const MIN_BLOCK_MINUTES = 30;
 const DEADLINE_BUFFER_HOURS = 2;
@@ -388,6 +396,9 @@ function placeTurn(params: {
   turnHours: number;
   peakPreferenceStrength: number;
   allowLateNight: boolean;
+  allowOvernight: boolean;
+  /** Hours still to place across all of this assignment's unfinished tasks. */
+  assignmentRemainingHours: number;
   respectGap: boolean;
   personalHourWeights?: Record<number, number>;
   blockedTimes: BlockedTime[];
@@ -402,7 +413,7 @@ function placeTurn(params: {
 }): PlacedWindow | null {
   const {
     from, until, timezone, turnHours, peakPreferenceStrength,
-    allowLateNight, respectGap, personalHourWeights, blockedTimes,
+    allowLateNight, allowOvernight, assignmentRemainingHours, respectGap, personalHourWeights, blockedTimes,
     existingBlocks, scheduledSoFar, assignmentDayTotals,
     assignmentDaySessionCounts, dailyAssignmentTarget, globalDayTotals,
     globalDailyTarget, idealNextDate,
@@ -415,7 +426,31 @@ function placeTurn(params: {
   // while free evenings exist. Urgent work goes straight to the wider day.
   // Everything else (break gaps, which day) is relaxed *within* a window
   // before the next window is tried, so unsociable hours are a last resort.
-  const hourWindows = allowLateNight ? [EXTENDED_WINDOW] : [PREFERRED_WINDOW, EXTENDED_WINDOW];
+  let hourWindows = allowLateNight ? [EXTENDED_WINDOW] : [PREFERRED_WINDOW, EXTENDED_WINDOW];
+
+  if (allowOvernight) {
+    // Decide up front whether the night is needed, rather than trying it
+    // only after the waking day has been used up. Blocks for one
+    // assignment are placed strictly in time order, so once tomorrow
+    // morning has been booked the hours before it can no longer be
+    // reached: leaving the night as an afterthought stranded it, and
+    // work that plainly needed an all-nighter was still reported at risk.
+    // So: if what's left of this assignment can't fit in the waking hours
+    // that remain before its deadline, open the whole day now and let it
+    // run on from the evening through the night. If it does fit, the
+    // night stays a final fallback only.
+    const wakingSlots = getOpenSlotsByDay({
+      from, until, timezone, personalHourWeights, blockedTimes,
+      existingBlocks, scheduledSoFar, hourWindow: EXTENDED_WINDOW, gapMinutes: 0,
+    });
+    let wakingHoursLeft = 0;
+    for (const slots of wakingSlots.values()) wakingHoursLeft += slots.length * (MIN_BLOCK_MINUTES / 60);
+
+    hourWindows =
+      wakingHoursLeft < assignmentRemainingHours
+        ? [OVERNIGHT_WINDOW]
+        : [...hourWindows, OVERNIGHT_WINDOW];
+  }
   const gapTiers = respectGap ? [MIN_GAP_MINUTES, 0] : [0];
   const needsMultipleSessionsPerDay = dailyAssignmentTarget > MAX_CONTINUOUS_HOURS;
 
@@ -669,7 +704,15 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
         from: earliestStartForChronology, // Enforces chronology
         until, timezone: input.timezone, turnHours,
         peakPreferenceStrength: urgency.peakPreferenceStrength,
-        allowLateNight: urgency.allowLateNight, respectGap: !isPanic,
+        allowLateNight: urgency.allowLateNight,
+        allowOvernight:
+          assignment.allow_overnight === true &&
+          hoursUntilDeadline <= OVERNIGHT_MAX_HOURS_BEFORE_DEADLINE,
+        assignmentRemainingHours: tasks.reduce(
+          (sum, t) => sum + (finished.has(t.id) ? 0 : remainingHours.get(t.id) ?? 0),
+          0
+        ),
+        respectGap: !isPanic,
         personalHourWeights: input.personalHourWeights, blockedTimes: input.blockedTimes,
         existingBlocks: input.existingBlocks, scheduledSoFar,
         assignmentDayTotals: dayTotals, assignmentDaySessionCounts: daySessionCounts,

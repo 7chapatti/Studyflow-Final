@@ -53,6 +53,7 @@ export const CreateAssignmentSchema = z.object({
       message: "Invalid deadline datetime",
     }),
   priority: z.enum(["low", "normal", "high", "urgent"]),
+  allowOvernight: z.boolean().optional(),
 });
 
 export const UpdateAssignmentSchema = CreateAssignmentSchema.partial().extend({

@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { name, description, deadline, priority, sections, checklist } = parsed.data;
+  const { name, description, deadline, priority, sections, checklist, allowOvernight } = parsed.data;
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -142,5 +142,22 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ success: true, data: { id: assignmentId } });
+  // The overnight opt-in is saved as its own step, after everything else,
+  // so a problem with it can never cost the user the assignment they just
+  // made. If it doesn't save, the response says so and the page tells them,
+  // rather than leaving a ticked box that quietly did nothing.
+  let overnightSaved = true;
+  if (allowOvernight) {
+    const { error: overnightError } = await supabase
+      .from("assignments")
+      .update({ allow_overnight: true })
+      .eq("id", assignmentId);
+
+    if (overnightError) {
+      overnightSaved = false;
+      logger.error("Failed to save allow_overnight", { detail: overnightError });
+    }
+  }
+
+  return NextResponse.json({ success: true, data: { id: assignmentId, overnightSaved } });
 }

@@ -37,6 +37,7 @@ export default function NewAssignmentPage() {
   const [name, setName] = useState("");
   const [deadline, setDeadline] = useState("");
   const [deadlineTime, setDeadlineTime] = useState("23:59");
+  const [allowOvernight, setAllowOvernight] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
@@ -127,10 +128,13 @@ export default function NewAssignmentPage() {
 
       const res = await fetch("/api/assignments", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), description: description.trim() || undefined, deadline: deadlineWithTime, priority: DEFAULT_PRIORITY, sections: aiResult.sections, checklist: aiResult.checklist ?? [] }),
+        body: JSON.stringify({ name: name.trim(), description: description.trim() || undefined, deadline: deadlineWithTime, priority: DEFAULT_PRIORITY, allowOvernight, sections: aiResult.sections, checklist: aiResult.checklist ?? [] }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) { setFormError(json.error ?? "Failed to create assignment."); setSubmitting(false); return; }
+      if (allowOvernight && json.data.overnightSaved === false) {
+        alert("Your assignment was created, but the overnight option couldn't be saved, so nothing will be scheduled overnight. You can try switching it on again from the assignment's page.");
+      }
 
       const assignmentId = json.data.id as string;
       await fetch("/api/schedule/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assignmentId }) });
@@ -323,10 +327,28 @@ export default function NewAssignmentPage() {
                 </div>
               </div>
             </div>
+
+            <label htmlFor="allow-overnight" className="flex items-start gap-3 cursor-pointer">
+              <input
+                id="allow-overnight"
+                type="checkbox"
+                checked={allowOvernight}
+                onChange={(e) => setAllowOvernight(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-indigo"
+              />
+              <span>
+                <strong className="block text-sm font-medium text-text">Allow overnight study blocks</strong>
+                <span className="block text-dim text-xs mt-0.5">
+                  If this is due within 2 days and won&apos;t fit into the day, study time can be
+                  placed between midnight and 6am. Left off, nothing is ever scheduled then and
+                  you&apos;ll be told if it won&apos;t fit.
+                </span>
+              </span>
+            </label>
           </fieldset>
         </section>
 
-        {formError && <div className="bg-red/10 border border-red/20 rounded-xl px-4 py-3 text-red text-sm font-medium text-center" role="alert">{formError}</div>}
+        {formError &&<div className="bg-red/10 border border-red/20 rounded-xl px-4 py-3 text-red text-sm font-medium text-center" role="alert">{formError}</div>}
 
         <button type="submit" disabled={submitting || !aiResult} className="w-full flex items-center justify-center gap-2 bg-indigo hover:bg-indigo/90 text-white font-semibold rounded-xl py-3.5 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed">
           {submitting && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}

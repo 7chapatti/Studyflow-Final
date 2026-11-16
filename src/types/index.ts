@@ -33,6 +33,9 @@ export interface Assignment {
   estimated_hours: number;
   colour_index: number;
   status: AssignmentStatus;
+  /** Owner has opted in to study blocks between midnight and 06:00 for this
+   * assignment when its deadline is close. Absent means no. */
+  allow_overnight?: boolean;
   archived_at: string | null;
   created_at: string;
   tasks?: Task[];

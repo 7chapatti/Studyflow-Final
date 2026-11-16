@@ -56,6 +56,7 @@ export default function AssignmentPage() {
   const [editDeadlineDate, setEditDeadlineDate] = useState("");
   const [editDeadlineTime, setEditDeadlineTime] = useState("");
   const [editPriority, setEditPriority] = useState<Priority>("normal");
+  const [editAllowOvernight, setEditAllowOvernight] = useState(false);
   const [editError, setEditError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -195,7 +196,7 @@ export default function AssignmentPage() {
     setEditName(assignment.name); setEditDescription(assignment.description ?? "");
     setEditDeadlineDate(new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(d));
     setEditDeadlineTime(new Intl.DateTimeFormat("en-GB", { timeZone: timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(d));
-    setEditPriority(assignment.priority); setEditError(""); setEditing(true);
+    setEditPriority(assignment.priority); setEditAllowOvernight(assignment.allow_overnight === true); setEditError(""); setEditing(true);
   }
 
   async function handleSaveEdit() {
@@ -212,6 +213,18 @@ export default function AssignmentPage() {
       if (error) throw error;
       
       setAssignment((prev) => prev ? { ...prev, name: parsed.data.name!, description: parsed.data.description ?? null, deadline: parsed.data.deadline!, priority: parsed.data.priority! } : prev);
+
+      // Saved separately and only when it changed, so the rest of the edit
+      // still goes through if this one setting can't be stored.
+      if (editAllowOvernight !== (assignment.allow_overnight === true)) {
+        const { error: overnightError } = await supabase.from("assignments").update({ allow_overnight: editAllowOvernight }).eq("id", id);
+        if (overnightError) {
+          setEditError("Your other changes were saved, but the overnight option couldn't be.");
+          return;
+        }
+        setAssignment((prev) => prev ? { ...prev, allow_overnight: editAllowOvernight } : prev);
+      }
+
       setEditing(false);
     } catch { setEditError("Failed to save changes."); } 
     finally { setSaving(false); }
@@ -268,6 +281,13 @@ export default function AssignmentPage() {
                 </div>
               </div>
             </div>
+            <label htmlFor="edit-allow-overnight" className="flex items-start gap-3 cursor-pointer">
+              <input id="edit-allow-overnight" type="checkbox" checked={editAllowOvernight} onChange={(e) => setEditAllowOvernight(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-indigo" />
+              <span>
+                <strong className="block text-sm font-medium text-text">Allow overnight study blocks</strong>
+                <span className="block text-dim text-xs mt-0.5">Only used when this is due within 2 days and won&apos;t fit into the day. Press Organise on the calendar after changing this.</span>
+              </span>
+            </label>
             {editError && <p className="text-red text-xs bg-red/10 border border-red/20 p-2 rounded">{editError}</p>}
             <div className="flex gap-2 pt-2">
               <button onClick={handleSaveEdit} disabled={saving} className="flex-1 flex items-center justify-center gap-2 bg-indigo hover:bg-indigo/90 text-white text-sm font-medium rounded-lg py-2 transition-colors disabled:opacity-50">
