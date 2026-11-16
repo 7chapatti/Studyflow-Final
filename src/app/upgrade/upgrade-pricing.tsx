@@ -115,7 +115,7 @@ export default function UpgradePricing({
             href={isAnonymous ? "/" : "/dashboard"}
             className="font-sora text-lg font-semibold text-text hover:text-il transition-colors"
           >
-            Study<span className="text-il">Flow</span>
+            Duecourse
           </Link>
           <button
             onClick={() => router.push(isAnonymous ? "/" : "/dashboard")}

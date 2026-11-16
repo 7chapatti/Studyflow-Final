@@ -431,9 +431,37 @@ export default function CalendarView({
         showToast(`✓ Merged into one block (${mergedLabel})`);
       } else {
         setBlockedTimes((prev) => prev.map((b) => b.id === state.blockId ? { ...b, startHour: drop.startHour, endHour: drop.endHour, dayIndex: drop.dayIndex } : b));
-        const results = await Promise.all(bt.sourceIds.map((sourceId) => supabase.from("blocked_times").update({ start_hour: drop.startHour, end_hour: drop.endHour }).eq("id", sourceId)));
-        if (results.some((r) => r.error)) { showToast("Failed to save — please try again"); loadData(); }
+
+        // One blocked_times row can cover several days ("Lectures, Mon-Fri").
+        // The block being dragged is just one day of it, so the move has to
+        // apply to that day alone. Previously this wrote the new hours onto
+        // the whole row (silently moving every other day too, while the
+        // screen only showed this one moving) and never saved a change of
+        // day at all, so a block dragged to another day snapped back on
+        // reload. A multi-day row is now split: this day is taken out of it
+        // and saved as its own row at the new day and time.
+        const originDay = DAYS[bt.dayIndex];
+        const targetDayName = DAYS[drop.dayIndex];
+        const { data: { user } } = await supabase.auth.getUser();
+
+        const results = await Promise.all(bt.sourceIds.map(async (sourceId) => {
+          const { data: row, error: readError } = await supabase.from("blocked_times").select("label, days, repeat_weekly").eq("id", sourceId).single();
+          if (readError || !row || !user) return { error: readError ?? new Error("Blocked time not found") };
+
+          const days = row.days as string[];
+          if (days.length <= 1) {
+            return supabase.from("blocked_times").update({ days: [targetDayName], start_hour: drop.startHour, end_hour: drop.endHour }).eq("id", sourceId);
+          }
+
+          const created = await supabase.from("blocked_times").insert({ user_id: user.id, label: row.label, days: [targetDayName], start_hour: drop.startHour, end_hour: drop.endHour, repeat_weekly: row.repeat_weekly });
+          if (created.error) return created;
+          return supabase.from("blocked_times").update({ days: days.filter((d) => d !== originDay) }).eq("id", sourceId);
+        }));
+
+        if (results.some((r) => r.error)) showToast("Failed to save — please try again");
         else showToast(bt.isMerged ? `✓ Merged block moved (${bt.sourceIds.length} rules updated)` : "✓ Blocked time moved");
+        // Reload either way: rows may have been split, so local ids are stale.
+        loadData();
       }
     }
   }, [dropTarget, weekDays, blockedTimes, showToast, loadData]);

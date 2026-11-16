@@ -24,26 +24,26 @@ function compressWhitespace(input: string): string {
   return input.replace(/\s+/g, " ").trim();
 }
 
+// Cheap pre-filter for text that is plainly addressed to the model rather
+// than describing coursework. It deliberately matches instructions, not
+// topics.
+//
+// It used to also reject any brief containing words like "malware",
+// "phishing", "credentials", "weapons" or "self-harm". Those are ordinary
+// subject matter for cyber security, law, history, nursing and psychology
+// students ("submit using your university credentials" alone tripped it),
+// so real briefs were being refused before the model ever saw them. Topic
+// and safety judgement belongs to the classification step in the prompt
+// below, which reads the whole brief in context and whose verdict is
+// enforced after the call.
 function hasHighRiskContent(input: string): boolean {
-  const text = input.toLowerCase();
-
   const patterns = [
-    /\bignore (all|any|previous) instructions\b/i,
-    /\bprompt injection\b/i,
-    /\bjailbreak\b/i,
-    /\bhow to hack\b/i,
-    /\bbypass (security|auth|login)\b/i,
-    /\bphishing\b/i,
-    /\bransomware\b/i,
-    /\bmalware\b/i,
-    /\bexfiltrat(e|ion)\b/i,
-    /\bcredential(s)?\b/i,
-    /\bweapon(s)?\b/i,
-    /\bmake a bomb\b/i,
-    /\bself[- ]harm\b/i,
+    /\b(ignore|disregard|forget) (all |any |the |your )?(previous|prior|above|earlier) (instructions|prompts?|rules)\b/i,
+    /\b(reveal|print|repeat|show) (me )?(your|the) (system|hidden|initial) (prompt|instructions)\b/i,
+    /\byou are now (in )?(developer|dan|jailbreak)\b/i,
   ];
 
-  return patterns.some((pattern) => pattern.test(text));
+  return patterns.some((pattern) => pattern.test(input));
 }
 
 function looksAcademic(input: string): boolean {
@@ -72,8 +72,17 @@ export async function POST(request: Request) {
   const auth = await requireAuth();
   if (auth.error) return auth.error;
   const { user, profile } = auth;
+  // Two limits. The per-account one is the tight one. The per-IP one stays
+  // as a backstop against many accounts from one machine, but is looser
+  // than before: a whole campus or hall of residence usually sits behind a
+  // single IP, and at 20 per 10 minutes per IP a busy library could lock
+  // everyone on the network out at once.
   const ip = getClientIp(request);
-  const withinRateLimit = await checkRateLimit(`ai-analyse:${ip}`, 20, 10 * 60);
+  const [withinUserLimit, withinIpLimit] = await Promise.all([
+    checkRateLimit(`ai-analyse:user:${user.id}`, 20, 10 * 60),
+    checkRateLimit(`ai-analyse:${ip}`, 100, 10 * 60),
+  ]);
+  const withinRateLimit = withinUserLimit && withinIpLimit;
   if (!withinRateLimit) {
     return NextResponse.json(
       { success: false, error: "Too many requests. Please wait a few minutes and try again." },
@@ -364,13 +373,35 @@ Return ONLY valid compact JSON:
       );
     }
 
-    parsed.sections = parsed.sections.slice(0, 10).map((s) => ({
-      ...s,
-      hours: Math.max(0.25, Math.min(24, s.hours)),
-      confidence: Math.max(0, Math.min(1, s.confidence ?? 0.7)),
-      description: compressWhitespace(s.description ?? "").slice(0, 500),
-      name: compressWhitespace(s.name ?? "").slice(0, 200),
-    }));
+    // The model's JSON is not guaranteed to hold numbers where numbers are
+    // asked for ("2-3", "about 4", null all turn up). Coerce, and drop any
+    // section whose hours or name can't be recovered, so a NaN can't reach
+    // the total or the client.
+    parsed.sections = parsed.sections
+      .slice(0, 10)
+      .map((s) => {
+        const hours = Number(s?.hours);
+        const confidence = Number(s?.confidence);
+        return {
+          ...s,
+          hours: Number.isFinite(hours) ? Math.max(0.25, Math.min(24, hours)) : NaN,
+          confidence: Number.isFinite(confidence) ? Math.max(0, Math.min(1, confidence)) : 0.7,
+          description: compressWhitespace(String(s?.description ?? "")).slice(0, 500),
+          name: compressWhitespace(String(s?.name ?? "")).slice(0, 200),
+        };
+      })
+      .filter((s) => Number.isFinite(s.hours) && s.name.length > 0);
+
+    if (parsed.sections.length === 0) {
+      await refundAIQuota(quota.reservationId);
+      return NextResponse.json(
+        {
+          success: false,
+          error: "AI response was incomplete. Please try again.",
+        },
+        { status: 500 }
+      );
+    }
 
     parsed.estimatedHours =
       Math.round(parsed.sections.reduce((sum, s) => sum + s.hours, 0) * 10) / 10;

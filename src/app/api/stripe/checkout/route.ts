@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/api";
 import { createServiceClient } from "@/lib/supabase/server";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { logger } from "@/lib/logger";
+import { isOccupyingSubscriptionStatus } from "@/lib/subscription-status";
 
 export async function POST(request: Request) {
   const auth = await requireAuth();
@@ -67,6 +68,44 @@ export async function POST(request: Request) {
         .from("profiles")
         .update({ stripe_customer_id: customerId })
         .eq("id", user.id);
+    } else {
+      // Someone who already has a subscription (e.g. Premium, now clicking
+      // "Upgrade to Pro") must change that subscription, not buy a second
+      // one alongside it. A fresh checkout here would leave them billed
+      // for both plans at once. Send them to Stripe's billing portal,
+      // which swaps the plan on the existing subscription and prorates it.
+      const existing = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "all",
+        limit: 20,
+      });
+      const current = existing.data.find((sub) => isOccupyingSubscriptionStatus(sub.status));
+
+      if (current) {
+        const returnUrl = `${appUrl}/upgrade`;
+        let portalUrl: string;
+        try {
+          // Deep-links straight to the "change plan" screen. Only works if
+          // plan switching is enabled in the Stripe portal settings.
+          const session = await stripe.billingPortal.sessions.create({
+            customer: customerId,
+            return_url: returnUrl,
+            flow_data: {
+              type: "subscription_update",
+              subscription_update: { subscription: current.id },
+            },
+          });
+          portalUrl = session.url;
+        } catch {
+          const session = await stripe.billingPortal.sessions.create({
+            customer: customerId,
+            return_url: returnUrl,
+          });
+          portalUrl = session.url;
+        }
+
+        return NextResponse.json({ success: true, data: { url: portalUrl, portal: true } });
+      }
     }
 
     const session = await stripe.checkout.sessions.create({

@@ -267,7 +267,8 @@ function bestWindowInDay(
   turnHours: number,
   peakPreferenceStrength: number,
   dayWindowStartHour: number,
-  dayWindowEndHour: number
+  dayWindowEndHour: number,
+  timezone: string
 ): PlacedWindow | null {
   if (daySlots.length === 0) return null;
 
@@ -288,7 +289,12 @@ function bestWindowInDay(
 
   function scoreWindow(window: TimeSlot[]): number {
     const avgWeight = window.reduce((sum, s) => sum + s.weight, 0) / window.length;
-    const startHour = dateToHour(window[0].start);
+    // Slot starts are real instants, so read the hour in the user's
+    // timezone. Reading it straight off the Date gave the *server's* local
+    // hour instead: the same slot scored as "early" or "late" depending on
+    // where the code happened to run, and for anyone west of the server a
+    // late-evening slot could look like the earliest of the day.
+    const startHour = dateToHour(toZonedTime(window[0].start, timezone));
     const normalizedOffset = Math.min(
       1,
       Math.max(0, (startHour - dayWindowStartHour) / daySpanHours)
@@ -447,7 +453,8 @@ function placeTurn(params: {
           turnHours,
           peakPreferenceStrength,
           dayWindowStartHour,
-          dayWindowEndHour
+          dayWindowEndHour,
+          timezone
         );
         if (window) {
           return { ...window, dayKey: format(toZonedTime(window.start, timezone), "yyyy-MM-dd") };

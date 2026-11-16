@@ -91,36 +91,54 @@ export default function AssignmentPage() {
         task.estimated_hours.toString()
       );
       if (input === null) return; // User clicked Cancel
-      actualHours = Math.max(0.1, parseFloat(input) || task.estimated_hours);
+      // Capped so a typo like "250" for 2.50 can't swamp the pace average
+      // that every future estimate is scaled by.
+      actualHours = Math.min(100, Math.max(0.1, parseFloat(input) || task.estimated_hours));
     }
 
     const now = new Date().toISOString();
-    const updates: Partial<Task> = { 
-      status: isDone ? "done" : "todo", 
+    const updates: Partial<Task> = {
+      status: isDone ? "done" : "todo",
       completed_at: isDone ? now : null,
-      actual_hours: isDone ? actualHours : null 
+      actual_hours: isDone ? actualHours : null
     };
 
+    // Save the task first and only carry on if that worked, so the screen
+    // and the pace history can't get ahead of what was actually stored.
+    const { error: taskError } = await supabase.from("tasks").update(updates).eq("id", task.id);
+    if (taskError) {
+      alert("Couldn't save that change. Please try again.");
+      return;
+    }
+
+    // One pace entry per task: clear any earlier one, so ticking a task,
+    // unticking it and ticking it again doesn't count it twice.
+    await supabase.from("pace_log").delete().eq("task_id", task.id);
     if (isDone) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await supabase.from("pace_log").insert({ 
-          user_id: user.id, 
-          task_id: task.id, 
-          estimated_hours: task.estimated_hours, 
-          actual_hours: actualHours 
+        await supabase.from("pace_log").insert({
+          user_id: user.id,
+          task_id: task.id,
+          estimated_hours: task.estimated_hours,
+          actual_hours: actualHours
         });
       }
     }
 
-    await supabase.from("tasks").update(updates).eq("id", task.id);
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, ...updates } : t)));
-    
+
     // Auto-complete assignment if all tasks are done
     const allDone = tasks.map((t) => t.id === task.id ? { ...t, ...updates } : t).every((t) => t.status === "done");
     if (allDone && isDone) {
       await supabase.from("assignments").update({ status: "complete" }).eq("id", id);
       setAssignment((prev) => prev ? { ...prev, status: "complete" } : prev);
+    } else if (!isDone && assignment?.status === "complete") {
+      // Unticking a task on a finished assignment reopens it. Left as
+      // "complete" it would be skipped by the scheduler, so the reopened
+      // task would never get study time again.
+      await supabase.from("assignments").update({ status: "active" }).eq("id", id);
+      setAssignment((prev) => prev ? { ...prev, status: "active" } : prev);
     }
   }
 

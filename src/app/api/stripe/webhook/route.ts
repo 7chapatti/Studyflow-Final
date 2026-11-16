@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { stripe, PLANS } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/logger";
+import { effectOfSubscriptionStatus } from "@/lib/subscription-status";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,32 @@ function resolveTierFromSubscription(subscription: {
 }): PlanTier | null {
   const priceId = subscription.items.data.find((item) => PRICE_TO_TIER[item.price.id])?.price.id;
   return priceId ? PRICE_TO_TIER[priceId] : null;
+}
+
+// The best tier this customer is still paid up for across all of their
+// subscriptions, or "free" if there isn't one. Asked of Stripe directly
+// rather than inferred from the single event being handled, so one
+// subscription ending can't strip a tier that another one still covers.
+async function resolveCustomerTier(
+  customerId: string,
+  excludeSubscriptionId?: string
+): Promise<PlanTier | "free"> {
+  const subscriptions = await stripe.subscriptions.list({
+    customer: customerId,
+    status: "all",
+    limit: 20,
+  });
+
+  let best: PlanTier | "free" = "free";
+  for (const subscription of subscriptions.data) {
+    if (subscription.id === excludeSubscriptionId) continue;
+    if (effectOfSubscriptionStatus(subscription.status) !== "grant") continue;
+
+    const tier = resolveTierFromSubscription(subscription);
+    if (tier === "pro") return "pro";
+    if (tier === "premium") best = "premium";
+  }
+  return best;
 }
 
 export async function POST(request: Request) {
@@ -81,9 +108,19 @@ export async function POST(request: Request) {
       case "checkout.session.completed": {
         const session = event.data.object as {
           id: string;
+          mode?: string;
+          payment_status?: string;
           customer?: string | null;
           metadata?: { supabase_user_id?: string; plan?: string };
         };
+
+        // A session can complete before its payment has actually cleared.
+        // Only a paid (or genuinely free, e.g. 100% coupon) subscription
+        // checkout earns the tier here; anything else waits for Stripe's
+        // later subscription/invoice events.
+        if (session.mode !== "subscription" || session.payment_status === "unpaid") {
+          break;
+        }
 
         const userId = session.metadata?.supabase_user_id;
         const plan = session.metadata?.plan;
@@ -113,11 +150,13 @@ export async function POST(request: Request) {
       }
 
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as { customer: string };
+        const subscription = event.data.object as { id: string; customer: string };
+
+        const remainingTier = await resolveCustomerTier(subscription.customer, subscription.id);
 
         const { error } = await supabase
           .from("profiles")
-          .update({ tier: "free" })
+          .update({ tier: remainingTier })
           .eq("stripe_customer_id", subscription.customer);
 
         if (error) {
@@ -133,14 +172,24 @@ export async function POST(request: Request) {
 
       case "customer.subscription.updated": {
         const subscription = event.data.object as {
+          id: string;
+          status?: string;
           customer: string;
           cancel_at_period_end?: boolean;
           items: { data: { price: { id: string } }[] };
         };
-        
-        if (subscription.cancel_at_period_end) break;
 
-        const newTier = resolveTierFromSubscription(subscription);
+        const effect = effectOfSubscriptionStatus(subscription.status);
+        if (effect === "ignore") break;
+
+        let newTier: PlanTier | "free" | null;
+        if (effect === "revoke") {
+          newTier = await resolveCustomerTier(subscription.customer, subscription.id);
+        } else {
+          // Still paid up to the end of the period even if set to cancel.
+          if (subscription.cancel_at_period_end) break;
+          newTier = resolveTierFromSubscription(subscription);
+        }
         if (!newTier) break;
 
         const { error } = await supabase
@@ -183,6 +232,9 @@ export async function POST(request: Request) {
         }
 
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        if (effectOfSubscriptionStatus(subscription.status) !== "grant") {
+          break;
+        }
         const newTier = resolveTierFromSubscription(subscription);
 
         if (!newTier) {
