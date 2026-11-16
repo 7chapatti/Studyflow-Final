@@ -136,25 +136,32 @@ export interface AIAnalysisResult {
   };
 }
 
+// What actually differs between plans. Both numbers are enforced in
+// Postgres (create_assignment_atomic, consume_ai_analysis), not just shown.
 export const TIER_LIMITS = {
   free: {
     activeAssignments: 2,
     aiAnalysesPerMonth: 3,
-    maxFileSizeMB: 5,
-    totalStorageMB: 50,
   },
   premium: {
     activeAssignments: 20,
     aiAnalysesPerMonth: 50,
-    maxFileSizeMB: 25,
-    totalStorageMB: 5000,
   },
   pro: {
     activeAssignments: 100,
     aiAnalysesPerMonth: 200,
-    maxFileSizeMB: 50,
-    totalStorageMB: 20000,
   },
+} as const;
+
+// Brief uploads, the same on every plan. The ceiling isn't a product
+// choice: Vercel rejects any request body over about 4.5 MB before it
+// reaches the app, so larger per-plan limits (the old 25 MB and 50 MB
+// tiers) could never have worked. 4 MB leaves headroom for the form
+// encoding around the files. Uploaded briefs are read once for analysis
+// and not kept, so there is no storage allowance to advertise either.
+export const UPLOAD_LIMITS = {
+  maxFiles: 5,
+  maxTotalMB: 4,
 } as const;
 
 export const COLOUR_PALETTE = [

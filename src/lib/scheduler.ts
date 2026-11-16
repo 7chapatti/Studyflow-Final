@@ -26,8 +26,20 @@ import type {
 
 const PREFERRED_START_HOUR = 8;
 const PREFERRED_END_HOUR = 22;
-const LATE_NIGHT_END_HOUR = 24;
-const LATE_NIGHT_START_HOUR = 0;
+// Under deadline pressure the day stretches to 06:00-24:00. It never
+// stretches into 00:00-06:00: nothing is placed while people sleep. If the
+// work can't fit in waking hours before the deadline, the task is reported
+// as at risk instead, which is the honest answer and one the student can
+// act on (the old behaviour happily booked 00:00-04:30 sessions).
+const EXTENDED_START_HOUR = 6;
+const EXTENDED_END_HOUR = 24;
+
+interface HourWindow {
+  startHour: number;
+  endHour: number;
+}
+const PREFERRED_WINDOW: HourWindow = { startHour: PREFERRED_START_HOUR, endHour: PREFERRED_END_HOUR };
+const EXTENDED_WINDOW: HourWindow = { startHour: EXTENDED_START_HOUR, endHour: EXTENDED_END_HOUR };
 const MAX_CONTINUOUS_HOURS = 2;
 const MIN_BLOCK_MINUTES = 30;
 const DEADLINE_BUFFER_HOURS = 2;
@@ -188,12 +200,12 @@ function getOpenSlotsByDay(params: {
   blockedTimes: BlockedTime[];
   existingBlocks: ScheduledBlock[];
   scheduledSoFar: ScheduledBlockInsert[];
-  allowLateNight: boolean;
+  hourWindow: HourWindow;
   gapMinutes?: number;
 }): Map<string, TimeSlot[]> {
   const {
     from, until, timezone, personalHourWeights, blockedTimes,
-    existingBlocks, scheduledSoFar, allowLateNight, gapMinutes = 0,
+    existingBlocks, scheduledSoFar, hourWindow, gapMinutes = 0,
   } = params;
 
   const byDay = new Map<string, TimeSlot[]>();
@@ -207,13 +219,12 @@ function getOpenSlotsByDay(params: {
     const dayKey = format(currentZonedDay, "yyyy-MM-dd");
     const isToday = currentZonedDay.getTime() === startOfDay(zonedFrom).getTime();
     const roundedUpToHalfHour = Math.ceil(dateToHour(zonedFrom) * 2) / 2;
-    const startHour = isToday 
-      ? roundedUpToHalfHour 
-      : (allowLateNight ? LATE_NIGHT_START_HOUR : PREFERRED_START_HOUR);
-
-    const currentEndHour = (isToday && roundedUpToHalfHour >= PREFERRED_END_HOUR)
-      ? LATE_NIGHT_END_HOUR
-      : (allowLateNight ? LATE_NIGHT_END_HOUR : PREFERRED_END_HOUR);
+    // The first day starts from "now", but still never before the window
+    // opens: running this at 02:00 must not offer 02:00 as a slot.
+    const startHour = isToday
+      ? Math.max(roundedUpToHalfHour, hourWindow.startHour)
+      : hourWindow.startHour;
+    const currentEndHour = hourWindow.endHour;
 
     let hour = startHour;
     const daySlots: TimeSlot[] = [];
@@ -397,28 +408,31 @@ function placeTurn(params: {
     globalDailyTarget, idealNextDate,
   } = params;
 
-  const dayWindowStartHour = allowLateNight ? LATE_NIGHT_START_HOUR : PREFERRED_START_HOUR;
-  const dayWindowEndHour = allowLateNight ? LATE_NIGHT_END_HOUR : PREFERRED_END_HOUR;
+  // Which hours of the day to try, in order. Relaxed work sticks to the
+  // preferred daytime hours and only spills into early mornings and late
+  // evenings if there is genuinely nowhere else before the deadline (a
+  // heavily blocked calendar, say), rather than being declared at risk
+  // while free evenings exist. Urgent work goes straight to the wider day.
+  // Everything else (break gaps, which day) is relaxed *within* a window
+  // before the next window is tried, so unsociable hours are a last resort.
+  const hourWindows = allowLateNight ? [EXTENDED_WINDOW] : [PREFERRED_WINDOW, EXTENDED_WINDOW];
   const gapTiers = respectGap ? [MIN_GAP_MINUTES, 0] : [0];
   const needsMultipleSessionsPerDay = dailyAssignmentTarget > MAX_CONTINUOUS_HOURS;
 
   const idealDayKey = format(toZonedTime(idealNextDate, timezone), "yyyy-MM-dd");
-  const slotsByGap = new Map<number, Map<string, TimeSlot[]>>();
-  
-  function slotsFor(gapMinutes: number) {
-    let cached = slotsByGap.get(gapMinutes);
-    if (!cached) {
-      cached = getOpenSlotsByDay({
-        from, until, timezone, personalHourWeights, blockedTimes,
-        existingBlocks, scheduledSoFar, allowLateNight, gapMinutes,
-      });
-      slotsByGap.set(gapMinutes, cached);
-    }
-    return cached;
-  }
 
-  for (const gapMinutes of gapTiers) {
-    const slotsByDay = slotsFor(gapMinutes);
+  const attempts = hourWindows.flatMap((hourWindow) =>
+    gapTiers.map((gapMinutes) => ({ hourWindow, gapMinutes }))
+  );
+
+  for (const { hourWindow, gapMinutes } of attempts) {
+    const dayWindowStartHour = hourWindow.startHour;
+    const dayWindowEndHour = hourWindow.endHour;
+
+    const slotsByDay = getOpenSlotsByDay({
+      from, until, timezone, personalHourWeights, blockedTimes,
+      existingBlocks, scheduledSoFar, hourWindow, gapMinutes,
+    });
     if (slotsByDay.size === 0) continue;
 
     const orderedDayKeys = [...slotsByDay.keys()].sort();
@@ -560,6 +574,22 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
     assignmentStableUrgency.set(assignment.id, computeUrgency(totalHours, hoursUntilDeadline));
   }
 
+  // How much study a day should hold before work starts spilling onto the
+  // next one. It has to cover what *all* assignments need between them.
+  // It used to be sized from whichever single assignment was being placed,
+  // so with two pieces of work both due soon each day "filled up" at one
+  // assignment's worth: the rest of that day was left empty and the
+  // overflow was pushed to the deadline day (and, back when nights were
+  // allowed, into the small hours of it). Each assignment's share is capped
+  // at the waking day so one hopelessly overdue task can't make the figure
+  // meaningless for everything else.
+  const wakingHoursPerDay = EXTENDED_END_HOUR - EXTENDED_START_HOUR;
+  const combinedNeededPerDay = [...assignmentStableUrgency.values()].reduce(
+    (sum, urgency) => sum + Math.min(urgency.neededHoursPerDay, wakingHoursPerDay),
+    0
+  );
+  const globalDailyTarget = Math.max(GLOBAL_RELAXED_HOURS_PER_DAY, combinedNeededPerDay);
+
   const finalizeAtRisk = (task: Task & { assignment: Assignment }) => {
     if (finished.has(task.id)) return;
     finished.add(task.id);
@@ -617,7 +647,6 @@ export function scheduleTasks(userId: string, input: ScheduleInput): ScheduleOut
 
       const urgency = assignmentStableUrgency.get(assignment.id)!;
       const dailyAssignmentTarget = Math.max(RELAXED_HOURS_PER_DAY, urgency.neededHoursPerDay);
-      const globalDailyTarget = Math.max(GLOBAL_RELAXED_HOURS_PER_DAY, dailyAssignmentTarget);
 
       if (!assignmentDayTotals.has(assignment.id)) {
         assignmentDayTotals.set(assignment.id, new Map());

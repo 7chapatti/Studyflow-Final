@@ -97,11 +97,29 @@ export async function POST(request: Request) {
           });
           portalUrl = session.url;
         } catch {
-          const session = await stripe.billingPortal.sessions.create({
-            customer: customerId,
-            return_url: returnUrl,
-          });
-          portalUrl = session.url;
+          try {
+            const session = await stripe.billingPortal.sessions.create({
+              customer: customerId,
+              return_url: returnUrl,
+            });
+            portalUrl = session.url;
+          } catch (portalErr: unknown) {
+            // The billing portal hasn't been set up in Stripe yet. Say so
+            // plainly rather than falling through to a second subscription
+            // or a generic failure.
+            logger.error("Stripe billing portal unavailable for plan change", {
+              detail: portalErr instanceof Error ? portalErr.message : "Unknown error",
+              userId: user.id,
+            });
+            return NextResponse.json(
+              {
+                success: false,
+                error:
+                  "You already have a subscription, and switching plans isn't available just yet. Please get in touch and we'll change it for you.",
+              },
+              { status: 409 }
+            );
+          }
         }
 
         return NextResponse.json({ success: true, data: { url: portalUrl, portal: true } });

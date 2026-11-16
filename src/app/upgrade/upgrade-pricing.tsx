@@ -6,23 +6,27 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CheckIcon, XIcon } from "@/components/icons";
 import type { Tier } from "@/types";
+import { UPLOAD_LIMITS } from "@/types";
 
 export type ViewerTier = "anonymous" | Tier;
+
+// Only what the app does today, and only differences that are really
+// enforced. The plans differ in two numbers (active assignments and AI
+// analyses); every other feature is the same on all three, and is listed
+// that way rather than dressed up as a paid extra. Add a row here when a
+// feature ships, not before.
+const UPLOAD_ALLOWANCE = `${UPLOAD_LIMITS.maxFiles} files, ${UPLOAD_LIMITS.maxTotalMB} MB`;
 
 const FEATURES = [
   { label: "Active assignments", free: "2", premium: "20", pro: "100" },
   { label: "AI analyses per month", free: "3", premium: "50", pro: "200" },
-  { label: "Max file size", free: "5 MB", premium: "25 MB", pro: "50 MB" },
-  { label: "Storage", free: "50 MB", premium: "5 GB", pro: "20 GB" },
-  { label: "Auto-scheduling", free: false, premium: true, pro: true },
-  { label: "Auto-reschedule missed tasks", free: false, premium: true, pro: true },
-  { label: "Google Calendar sync", free: false, premium: true, pro: true },
-  { label: "Adaptive pace learning", free: false, premium: true, pro: true },
+  { label: "Brief uploads per analysis", free: UPLOAD_ALLOWANCE, premium: UPLOAD_ALLOWANCE, pro: UPLOAD_ALLOWANCE },
+  { label: "AI task breakdown and time estimates", free: true, premium: true, pro: true },
+  { label: "Scheduling around your commitments", free: true, premium: true, pro: true },
+  { label: "Rescheduling of missed study blocks", free: true, premium: true, pro: true },
+  { label: "Adaptive pace learning", free: true, premium: true, pro: true },
   { label: "Submission checklist", free: true, premium: true, pro: true },
   { label: "Progress tracking", free: true, premium: true, pro: true },
-  { label: "Productivity insights", free: false, premium: false, pro: true },
-  { label: "Confidence score breakdowns", free: false, premium: false, pro: true },
-  { label: "Priority support", free: false, premium: false, pro: true },
 ];
 
 export default function UpgradePricing({
@@ -97,7 +101,7 @@ export default function UpgradePricing({
       name: "Pro",
       monthlyPrice: "£9.99",
       yearlyPrice: "£95.99",
-      description: "For power users who want everything.",
+      description: "For a full workload across every module.",
       colour: "border-border",
       headerColour: "text-text",
       badge: null,

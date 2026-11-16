@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { toIsoWithTimezone } from "@/lib/datetime";
 import type { AIAnalysisResult } from "@/types";
+import { UPLOAD_LIMITS } from "@/types";
 import { CheckIcon, FileIcon, SparklesIcon, UploadIcon, XIcon } from "@/components/icons";
 
 // New assignments default to "normal" priority -- the scheduler's urgency
@@ -59,11 +60,33 @@ export default function NewAssignmentPage() {
   function addFiles(incoming: FileList | null) {
     if (!incoming) return;
     const allowed = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "text/plain", "image/png", "image/jpeg", "image/webp"];
-    const valid = Array.from(incoming).filter((f) => allowed.includes(f.type) && f.size <= 50 * 1024 * 1024);
-    setFiles((prev) => {
-      const names = new Set(prev.map((f) => f.name));
-      return [...prev, ...valid.filter((f) => !names.has(f.name))];
-    });
+    const candidates = Array.from(incoming);
+    const valid = candidates.filter((f) => allowed.includes(f.type));
+    const names = new Set(files.map((f) => f.name));
+    const next = [...files, ...valid.filter((f) => !names.has(f.name))];
+
+    // Clear the input first so picking the same file again still registers.
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    // Check count and size here, so nobody waits on an upload the server
+    // (and Vercel in front of it) is certain to refuse, and say why a file
+    // was left out instead of dropping it silently.
+    const maxBytes = UPLOAD_LIMITS.maxTotalMB * 1024 * 1024;
+    if (next.length > UPLOAD_LIMITS.maxFiles) {
+      setAiError(`You can upload up to ${UPLOAD_LIMITS.maxFiles} files.`);
+      return;
+    }
+    if (next.reduce((sum, f) => sum + f.size, 0) > maxBytes) {
+      setAiError(`Uploads are limited to ${UPLOAD_LIMITS.maxTotalMB} MB in total. Try fewer or smaller files, or paste the brief text instead.`);
+      return;
+    }
+    setAiError(
+      valid.length < candidates.length
+        ? "Some files were skipped. Upload PDF, DOCX, PPTX, TXT or image files (save older .doc or .ppt files as .docx or .pptx first)."
+        : ""
+    );
+
+    setFiles(next);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 

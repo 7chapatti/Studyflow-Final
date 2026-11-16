@@ -9,6 +9,14 @@ import { TIER_LIMITS } from "@/types";
 import { CheckIcon, ShieldIcon, UserIcon, ZapIcon } from "@/components/icons";
 import GoogleCalendarSettings from "@/components/google-calendar-settings";
 
+// Kept in step with the comparison table on the upgrade page: the plans
+// differ only in the two numbers; everything else is on all of them.
+const INCLUDED_ON_EVERY_PLAN = [
+  "Scheduling and rescheduling around your commitments",
+  "Adaptive pace learning",
+  "Submission checklist and progress tracking",
+] as const;
+
 const TIER_INFO = {
   free: {
     label: "Free",
@@ -16,8 +24,7 @@ const TIER_INFO = {
     features: [
       "2 active assignments",
       "3 AI analyses per month",
-      "5 MB max file size",
-      "Basic progress tracking",
+      ...INCLUDED_ON_EVERY_PLAN,
     ],
   },
   premium: {
@@ -26,10 +33,7 @@ const TIER_INFO = {
     features: [
       "20 active assignments",
       "50 AI analyses per month",
-      "25 MB max file size",
-      "Auto-scheduling & rescheduling",
-      "Google Calendar sync",
-      "Adaptive pace learning",
+      ...INCLUDED_ON_EVERY_PLAN,
     ],
   },
   pro: {
@@ -38,10 +42,7 @@ const TIER_INFO = {
     features: [
       "100 active assignments",
       "200 AI analyses per month",
-      "50 MB max file size",
-      "Everything in Premium",
-      "Productivity insights",
-      "Confidence score breakdowns",
+      ...INCLUDED_ON_EVERY_PLAN,
     ],
   },
 } as const;
@@ -59,6 +60,7 @@ export default function SettingsPage() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState("");
 
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
@@ -152,6 +154,10 @@ export default function SettingsPage() {
     setPwError("");
     setPwSuccess(false);
 
+    if (!currentPassword) {
+      setPwError("Please enter your current password.");
+      return;
+    }
     if (!newPassword) {
       setPwError("Please enter a new password.");
       return;
@@ -176,6 +182,27 @@ export default function SettingsPage() {
     setPwSaving(true);
     try {
       const supabase = createClient();
+
+      // Prove it's really the account holder before changing the password.
+      // Being logged in isn't enough on its own: anyone who sits down at an
+      // unlocked laptop is "logged in", and without this check they could
+      // set a new password and lock the owner out. Re-entering the current
+      // password is checked by Supabase itself, not compared in the browser.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) {
+        router.replace("/login");
+        return;
+      }
+
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+      if (verifyError) {
+        setPwError("Your current password is incorrect.");
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({ password: newPassword });
 
       if (error) {
@@ -184,6 +211,7 @@ export default function SettingsPage() {
       }
 
       setPwSuccess(true);
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } finally {
@@ -340,6 +368,22 @@ export default function SettingsPage() {
         </h2>
         <form onSubmit={handleChangePassword} noValidate className="space-y-4">
           <div className="space-y-1.5">
+            <label htmlFor="current-pw" className="block text-xs font-medium text-il">
+              Current password
+            </label>
+            <input
+              id="current-pw"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => {
+                setCurrentPassword(e.target.value);
+                setPwSuccess(false);
+              }}
+              autoComplete="current-password"
+              className="w-full bg-navy3 border border-border text-text placeholder-dim rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-indigo transition-colors"
+            />
+          </div>
+          <div className="space-y-1.5">
             <label htmlFor="new-pw" className="block text-xs font-medium text-il">
               New password
             </label>
@@ -418,15 +462,8 @@ export default function SettingsPage() {
             </p>
           </div>
           <div className="bg-navy3 rounded-lg p-3">
-            <p className="text-xs text-dim mb-1">Storage used</p>
-            <p className="text-text font-semibold text-lg">
-              {(profile.storage_used_bytes / 1024 / 1024).toFixed(1)}
-              <span className="text-dim font-normal text-sm">
-                {" "}MB / {limits.totalStorageMB >= 1000
-                  ? `${limits.totalStorageMB / 1000} GB`
-                  : `${limits.totalStorageMB} MB`}
-              </span>
-            </p>
+            <p className="text-xs text-dim mb-1">Active assignments allowed</p>
+            <p className="text-text font-semibold text-lg">{limits.activeAssignments}</p>
           </div>
         </div>
 
@@ -446,8 +483,8 @@ export default function SettingsPage() {
             </p>
             <p className="text-muted text-xs mb-3 leading-relaxed">
               {profile.tier === "free"
-                ? "Get more assignments, more AI analyses, and automatic scheduling."
-                : "Get 100 active assignments, 200 AI analyses, and productivity insights."}
+                ? "Get more active assignments and more AI analyses each month."
+                : "Get 100 active assignments and 200 AI analyses a month."}
             </p>
             <Link
               href="/upgrade"

@@ -105,7 +105,7 @@ export async function extractFileContent(
 ): Promise<ExtractedFile> {
   if (file.size > maxBytes) {
     throw new Error(
-      `"${file.name}" is larger than your plan's ${Math.round(maxBytes / (1024 * 1024))}MB per-file limit. Upgrade for larger uploads.`
+      `"${file.name}" is larger than the ${Math.round(maxBytes / (1024 * 1024))} MB upload limit. Try a smaller file, or paste the brief text instead.`
     );
   }
 

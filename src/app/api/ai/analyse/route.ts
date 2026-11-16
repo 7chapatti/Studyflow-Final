@@ -4,7 +4,7 @@ import { requireAuth, consumeAIQuota, refundAIQuota } from "@/lib/api";
 import { createClient } from "@/lib/supabase/server";
 import { calculatePaceRatio } from "@/lib/pace";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { TIER_LIMITS } from "@/types";
+import { UPLOAD_LIMITS } from "@/types";
 import type { AIAnalysisResult } from "@/types";
 import { logger } from "@/lib/logger";
 import { extractFileContent, type ExtractedFile } from "@/lib/file-extract";
@@ -137,9 +137,21 @@ export async function POST(request: Request) {
     );
   }
 
-  if (files.length > 5) {
+  if (files.length > UPLOAD_LIMITS.maxFiles) {
     return NextResponse.json(
-      { success: false, error: "Upload up to 5 files only." },
+      { success: false, error: `Upload up to ${UPLOAD_LIMITS.maxFiles} files only.` },
+      { status: 400 }
+    );
+  }
+
+  const maxUploadBytes = UPLOAD_LIMITS.maxTotalMB * 1024 * 1024;
+  const totalUploadBytes = files.reduce((sum, f) => sum + (typeof f?.size === "number" ? f.size : 0), 0);
+  if (totalUploadBytes > maxUploadBytes) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Uploads are limited to ${UPLOAD_LIMITS.maxTotalMB} MB in total. Try fewer or smaller files, or paste the brief text instead.`,
+      },
       { status: 400 }
     );
   }
@@ -151,9 +163,8 @@ export async function POST(request: Request) {
 
   let extractedFiles: ExtractedFile[] = [];
   try {
-    const maxFileBytes = TIER_LIMITS[profile.tier].maxFileSizeMB * 1024 * 1024;
     extractedFiles = await Promise.all(
-      files.map((file) => extractFileContent(file, maxFileBytes))
+      files.map((file) => extractFileContent(file, maxUploadBytes))
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "File processing failed";
