@@ -3,6 +3,8 @@ import { requireAuth } from "@/lib/api";
 import { createServiceClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
 import { logger } from "@/lib/logger";
+import { removeCalendarConnection } from "@/lib/google/sync";
+import { isGoogleCalendarConfigured } from "@/lib/google/oauth";
 
 const STORAGE_BUCKET = "briefs";
 
@@ -40,6 +42,22 @@ export async function DELETE() {
         { status: 500 }
       );
     }
+  }
+
+  // Withdraw Duecourse's access to the user's Google Calendar, if they ever
+  // connected one. The stored token is removed with the account either way
+  // (the row cascades), but deleting it here alone would leave the grant
+  // itself alive on Google's side. Best-effort: a failure to reach Google
+  // must not block someone from deleting their account.
+  try {
+    if (isGoogleCalendarConfigured()) {
+      await removeCalendarConnection(user.id, { revoke: true });
+    }
+  } catch (err: unknown) {
+    logger.warn("Could not remove Google Calendar connection during account deletion", {
+      detail: err instanceof Error ? err.message : "Unknown error",
+      userId: user.id,
+    });
   }
 
   const { data: files } = await supabase.storage

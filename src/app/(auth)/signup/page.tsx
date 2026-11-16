@@ -2,13 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { SignUpSchema } from "@/lib/validation";
+import GoogleSignInButton from "@/components/google-sign-in-button";
 
 export default function SignupPage() {
-  const router = useRouter();
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -189,6 +187,8 @@ export default function SignupPage() {
             {loading ? "Creating account…" : "Create account"}
           </button>
         </form>
+
+        <GoogleSignInButton label="Sign up with Google" />
 
         <p className="text-center text-muted text-sm mt-6">
           Already have an account?{" "}

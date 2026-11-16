@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Profile } from "@/types";
 import { TIER_LIMITS } from "@/types";
 import { CheckIcon, ShieldIcon, UserIcon, ZapIcon } from "@/components/icons";
+import GoogleCalendarSettings from "@/components/google-calendar-settings";
 
 const TIER_INFO = {
   free: {
@@ -479,6 +480,8 @@ export default function SettingsPage() {
           </div>
         )}
       </section>
+
+      <GoogleCalendarSettings />
 
       <section aria-labelledby="danger-label" className="bg-card border border-red/20 rounded-xl p-5">
         <h2 id="danger-label" className="font-display text-base font-semibold text-red mb-2">

@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { requireAuth, flagMissedBlocks } from "@/lib/api";
+import { syncUserCalendar } from "@/lib/google/sync";
 import { createClient } from "@/lib/supabase/server";
 import { scheduleTasks, FATIGUE_WEIGHTS, blockOverlapsBlockedTimes, buildAtRiskMessage, buildRescheduledMessage } from "@/lib/scheduler";
 import { calculatePaceRatio } from "@/lib/pace";
@@ -10,6 +11,7 @@ import { logger } from "@/lib/logger";
 
 const PEAK_HOURS_LOOKBACK_DAYS = 120;
 const PEAK_HOURS_MAX_BLOCKS = 300;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 type AuthedUser = { id: string };
@@ -23,7 +25,14 @@ export async function POST(request: Request) {
   let assignmentId: string | null = null;
   try {
     const body = await request.json();
-    assignmentId = body.assignmentId ?? null;
+    const raw: unknown = body?.assignmentId ?? null;
+    if (raw !== null && (typeof raw !== "string" || !UUID_PATTERN.test(raw))) {
+      return NextResponse.json(
+        { success: false, error: "Invalid request." },
+        { status: 400 }
+      );
+    }
+    assignmentId = raw;
   } catch {
     return NextResponse.json(
       { success: false, error: "Invalid request." },
@@ -54,7 +63,19 @@ export async function POST(request: Request) {
   }
 
   try {
-    return await runSchedule(supabase, user, profile, assignmentId);
+    const response = await runSchedule(supabase, user, profile, assignmentId);
+
+    // The plan has just changed, so mirror it to Google Calendar for anyone
+    // who has connected one. Runs after the response is sent, so the user
+    // isn't kept waiting on Google, and does nothing (one quick lookup) for
+    // people who haven't connected a calendar.
+    if (response.ok) {
+      after(async () => {
+        await syncUserCalendar(user.id);
+      });
+    }
+
+    return response;
   } finally {
     const { error: releaseError } = await supabase.rpc("release_schedule_lock");
     if (releaseError) {

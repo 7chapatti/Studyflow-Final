@@ -69,6 +69,44 @@ export default function PrivacyPage() {
                   for how they handle that information.
                 </p>
               </section>
+
+              {/*
+                Same reason as the Payments section above: these Google
+                data flows aren't on the linked iubenda document yet. Remove
+                this once they are, so nothing is listed twice.
+              */}
+              <section aria-labelledby="google-heading" className="mt-6">
+                <h2 id="google-heading" className="font-display mb-2 text-base font-semibold text-text">
+                  Google sign-in and Google Calendar
+                </h2>
+                <p className="mb-3 text-sm leading-relaxed text-muted">
+                  If you sign in with Google, Duecourse receives your name
+                  and email address from Google to create and identify your
+                  account. It doesn&apos;t receive your Google password.
+                </p>
+                <p className="mb-3 text-sm leading-relaxed text-muted">
+                  If you choose to connect Google Calendar, Duecourse
+                  creates a calendar called &quot;Duecourse&quot; in your
+                  Google account and sends the titles and times of your
+                  study blocks to it. Duecourse can only access that one
+                  calendar; it can&apos;t see or change your other calendars
+                  or events. You can disconnect at any time in Settings,
+                  which withdraws Duecourse&apos;s access.
+                </p>
+                <p className="text-sm leading-relaxed text-muted">
+                  Duecourse&apos;s use of information received from Google
+                  APIs adheres to the{" "}
+                  <Link
+                    href="https://developers.google.com/terms/api-services-user-data-policy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-il underline transition-colors hover:text-text"
+                  >
+                    Google API Services User Data Policy ↗
+                  </Link>
+                  , including the Limited Use requirements.
+                </p>
+              </section>
             </>
           ) : (
             <p className="text-sm leading-relaxed text-muted">

@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogInSchema } from "@/lib/validation";
+import { safeRedirectPath } from "@/lib/redirect";
+import GoogleSignInButton from "@/components/google-sign-in-button";
+
 export default function LoginPage() {
   return (
     <Suspense fallback={null}>
@@ -16,15 +19,14 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const requestedRedirect = searchParams.get("redirectTo");
-  const redirectTo =
-    requestedRedirect && requestedRedirect.startsWith("/") && !requestedRedirect.startsWith("//")
-      ? requestedRedirect
-      : "/dashboard";
+  const redirectTo = safeRedirectPath(searchParams.get("redirectTo"));
+  const callbackFailed = searchParams.get("error") === "auth_callback_failed";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(
+    callbackFailed ? "That sign-in link didn't work or has expired. Please try again." : ""
+  );
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -117,6 +119,8 @@ function LoginForm() {
             {loading ? "Signing in…" : "Log in"}
           </button>
         </form>
+
+        <GoogleSignInButton label="Continue with Google" next={redirectTo} />
 
         <p className="text-center text-muted text-sm mt-6">
           Don&apos;t have an account?{" "}
